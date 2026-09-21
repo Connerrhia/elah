@@ -75,6 +75,8 @@ function createMockGL(): WebGL2RenderingContext {
     getUniformLocation: vi.fn(() => ({})),
     uniform1i: vi.fn(),
     uniform1f: vi.fn(),
+    uniform2f: vi.fn(),
+    uniform4f: vi.fn(),
     uniformMatrix3fv: vi.fn(),
     activeTexture: vi.fn(),
     drawArrays: vi.fn(),
@@ -239,6 +241,26 @@ describe('VideoLayer', () => {
     expect(gl.uniform1f).toHaveBeenCalledWith(expect.anything(), 0.45)
   })
 
+  it('always sets uCrop, zeroed when the clip has no crop', () => {
+    const clip = makeClip()
+    layer.acquire(clip, ctx)
+
+    provider.getCurrent.mockReturnValue(mockFrame())
+    layer.draw(clip, ctx)
+
+    expect(gl.uniform4f).toHaveBeenCalledWith(expect.anything(), 0, 0, 0, 0)
+  })
+
+  it('forwards the clip crop rect as uCrop', () => {
+    const clip = makeClip({ crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.4 } })
+    layer.acquire(clip, ctx)
+
+    provider.getCurrent.mockReturnValue(mockFrame())
+    layer.draw(clip, ctx)
+
+    expect(gl.uniform4f).toHaveBeenCalledWith(expect.anything(), 0.1, 0.2, 0.5, 0.4)
+  })
+
   it('forwards transform uniforms correctly', () => {
     const clip = makeClip({
       transform: {
@@ -342,6 +364,111 @@ describe('VideoLayer', () => {
     expect(provider.setPlayhead).not.toHaveBeenCalled()
     expect(provider.dispose).not.toHaveBeenCalled()
     expect(layer.getProviderRefCount('clip-a')).toBe(1)
+  })
+
+  describe('onClipLoad', () => {
+    it('reports loading on acquire and clears it on the first drawn frame', () => {
+      const onClipLoad = vi.fn()
+      layer = new VideoLayer(pool, () => provider, { onClipLoad })
+      const clip = makeClip()
+
+      layer.acquire(clip, ctx)
+      expect(onClipLoad).toHaveBeenCalledWith('clip-a', 'loading')
+
+      // No frame yet — the clip is still waiting, and nothing is reported.
+      onClipLoad.mockClear()
+      layer.draw(clip, ctx)
+      expect(onClipLoad).not.toHaveBeenCalled()
+
+      provider.getCurrent.mockReturnValue(mockFrame())
+      layer.draw(clip, ctx)
+      expect(onClipLoad).toHaveBeenCalledWith('clip-a', null)
+
+      // Steady state: a drawing clip reports nothing further.
+      onClipLoad.mockClear()
+      layer.draw(clip, ctx)
+      layer.draw(clip, ctx)
+      expect(onClipLoad).not.toHaveBeenCalled()
+    })
+
+    it('clears the clip on release', () => {
+      const onClipLoad = vi.fn()
+      layer = new VideoLayer(pool, () => provider, { onClipLoad })
+      const clip = makeClip()
+
+      layer.acquire(clip, ctx)
+      onClipLoad.mockClear()
+
+      layer.release('clip-a')
+      expect(onClipLoad).toHaveBeenCalledWith('clip-a', null)
+    })
+
+    it('reports an error when the container fails to open', async () => {
+      const onClipLoad = vi.fn()
+      const failing = makeMockProvider()
+      let settleOpen!: () => void
+      const opening = new Promise<void>((resolve) => {
+        settleOpen = resolve
+      })
+      // Mirrors StreamingFrameProducer: the open promise swallows its own
+      // rejection into `openError` and resolves.
+      Object.defineProperty(failing, 'openPromise', { get: () => opening })
+      let openError: Error | null = null
+      Object.defineProperty(failing, 'openError', { get: () => openError })
+
+      layer = new VideoLayer(pool, () => failing, { onClipLoad })
+      layer.acquire(makeClip(), ctx)
+      expect(onClipLoad).toHaveBeenCalledWith('clip-a', 'loading')
+
+      onClipLoad.mockClear()
+      openError = new Error('no video track')
+      settleOpen()
+      await opening
+
+      expect(onClipLoad).toHaveBeenCalledWith('clip-a', 'error')
+    })
+
+    it('watches the open promise once, not once per tick', () => {
+      const onClipLoad = vi.fn()
+      const watched = makeMockProvider()
+      const opening = Promise.resolve()
+      const then = vi.spyOn(opening, 'then')
+      Object.defineProperty(watched, 'openPromise', { get: () => opening })
+
+      layer = new VideoLayer(pool, () => watched, { onClipLoad })
+      const clip = makeClip()
+      layer.acquire(clip, ctx)
+      layer.acquire(clip, ctx)
+      layer.acquire(clip, ctx)
+
+      expect(then).toHaveBeenCalledTimes(1)
+    })
+
+    it('hot-swaps provider and disposes old one when clip src changes', () => {
+      const providersCreated: Array<{ src: string; provider: ReturnType<typeof makeMockProvider> }> = []
+      const factory = (src: string) => {
+        const provider = makeMockProvider()
+        providersCreated.push({ src, provider })
+        return provider
+      }
+
+      layer = new VideoLayer(pool, factory)
+      const clipV1 = makeClip({ id: 'clip-1', src: 'blob:http://localhost/old-blob' })
+      layer.acquire(clipV1, ctx)
+
+      expect(providersCreated).toHaveLength(1)
+      expect(providersCreated[0].src).toBe('blob:http://localhost/old-blob')
+      const firstProvider = providersCreated[0].provider
+
+      // Now clip's src is updated (e.g. from IndexedDB recovery)
+      const clipV2 = makeClip({ id: 'clip-1', src: 'blob:http://localhost/fresh-blob' })
+      layer.acquire(clipV2, ctx)
+
+      expect(firstProvider.dispose).toHaveBeenCalledTimes(1)
+      expect(providersCreated).toHaveLength(2)
+      expect(providersCreated[1].src).toBe('blob:http://localhost/fresh-blob')
+      expect(layer.getProviderForItemId('clip-1')).toBe(providersCreated[1].provider)
+    })
   })
 
   it('does not import decoder, PlaybackEngine, or React modules', () => {

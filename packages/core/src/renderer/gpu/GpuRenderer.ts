@@ -69,6 +69,7 @@ export class GpuRenderer implements Renderer {
     this._glCtx = new WebGLContext({
       onLost: () => this._handleContextLost(),
       onRestore: () => this._handleContextRestored(),
+      onUnrecoverable: () => this._options.onContextUnrecoverable?.(),
       preserveDrawingBuffer: this._options.preserveDrawingBuffer,
     })
 
@@ -106,7 +107,9 @@ export class GpuRenderer implements Renderer {
     if (this._options.probeLayer) {
       videoLayer = new FrameProbeLayer()
     } else {
-      this._videoLayer = new VideoLayer(this._texturePool, videoLayerArg)
+      this._videoLayer = new VideoLayer(this._texturePool, videoLayerArg, {
+        ...(this._options.onClipLoad ? { onClipLoad: this._options.onClipLoad } : {}),
+      })
       videoLayer = this._videoLayer
     }
 
@@ -289,6 +292,11 @@ export class GpuRenderer implements Renderer {
     this._noOpTicks = 0
   }
 
+  /** True while the WebGL context is lost. Hosts should pause resolve/prewarm work. */
+  get isContextLost(): boolean {
+    return this._glCtx?.isLost ?? false
+  }
+
   /** Exposed for tests: underlying video layer instance. */
   get videoLayer(): VideoLayer | null {
     return this._videoLayer
@@ -349,6 +357,7 @@ export class GpuRenderer implements Renderer {
   }
 
   private _handleContextLost(): void {
+    this._options.onContextLost?.()
     this._lastScene = null
     this._texturePool?.handleContextLost()
     this._videoLayer?.notifyContextLost()
@@ -366,5 +375,6 @@ export class GpuRenderer implements Renderer {
 
     const clearColor = this._options.clearColor ?? [0, 0, 0, 1]
     this._glCtx?.setClearColor(...clearColor)
+    this._options.onContextRestored?.()
   }
 }

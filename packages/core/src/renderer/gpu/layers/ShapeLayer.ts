@@ -18,10 +18,14 @@ import type { Layer, LayerContext } from './types'
 
 const FULL_STAGE_MAT3 = new Float32Array([2, 0, 0, 0, 2, 0, -1, -1, 1])
 
+/**
+ * Per-clip resources: the GL texture holding the last painted content.
+ * Rasterization goes through ONE class-level scratch canvas shared by all
+ * shapes (see TextLayer.ts for the full rationale — per-clip full-stage
+ * canvases were an unbounded memory sink).
+ */
 interface ItemResources {
   texture: WebGLTexture
-  canvas: HTMLCanvasElement
-  ctx2d: CanvasRenderingContext2D
   width: number
   height: number
   lastSignature: string
@@ -51,7 +55,9 @@ function paintShape(
   const cx = (item.transform?.x ?? 0.5) * stage.width
   const cy = (item.transform?.y ?? 0.5) * stage.height
   const shortSide = Math.min(stage.width, stage.height)
-  const half = (item.transform?.scale ?? 0.5) * shortSide * 0.5
+  const baseHalf = (item.transform?.scale ?? 0.5) * shortSide * 0.5
+  const halfW = baseHalf * (item.transform?.scaleX ?? 1)
+  const halfH = baseHalf * (item.transform?.scaleY ?? 1)
 
   ctx2d.fillStyle = item.shapeFill
   ctx2d.strokeStyle = item.shapeStroke
@@ -59,19 +65,19 @@ function paintShape(
 
   if (item.shapeKind === 'rect') {
     ctx2d.beginPath()
-    ctx2d.rect(cx - half, cy - half, half * 2, half * 2)
+    ctx2d.rect(cx - halfW, cy - halfH, halfW * 2, halfH * 2)
     ctx2d.fill()
     if (item.shapeStrokeWidth > 0) ctx2d.stroke()
   } else if (item.shapeKind === 'circle') {
     ctx2d.beginPath()
-    ctx2d.arc(cx, cy, half, 0, Math.PI * 2)
+    ctx2d.ellipse(cx, cy, halfW, halfH, 0, 0, Math.PI * 2)
     ctx2d.fill()
     if (item.shapeStrokeWidth > 0) ctx2d.stroke()
   } else if (item.shapeKind === 'triangle') {
     ctx2d.beginPath()
-    ctx2d.moveTo(cx, cy - half)
-    ctx2d.lineTo(cx + half, cy + half)
-    ctx2d.lineTo(cx - half, cy + half)
+    ctx2d.moveTo(cx, cy - halfH)
+    ctx2d.lineTo(cx + halfW, cy + halfH)
+    ctx2d.lineTo(cx - halfW, cy + halfH)
     ctx2d.closePath()
     ctx2d.fill()
     if (item.shapeStrokeWidth > 0) ctx2d.stroke()
@@ -83,6 +89,9 @@ export class ShapeLayer implements Layer<ActiveShapeClip> {
   private _vao: WebGLVertexArrayObject | null = null
   private _gl: WebGL2RenderingContext | null = null
   private readonly _resources = new Map<string, ItemResources>()
+  /** Shared rasterization canvas — see ItemResources doc. */
+  private _scratchCanvas: HTMLCanvasElement | null = null
+  private _scratchCtx: CanvasRenderingContext2D | null = null
 
   acquire(item: ActiveShapeClip, ctx: LayerContext): void {
     const { gl } = ctx
@@ -99,18 +108,10 @@ export class ShapeLayer implements Layer<ActiveShapeClip> {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
     gl.bindTexture(gl.TEXTURE_2D, null)
 
-    const canvas = document.createElement('canvas')
-    canvas.width = ctx.stage.width
-    canvas.height = ctx.stage.height
-    const ctx2d = canvas.getContext('2d')
-    if (!ctx2d) throw new Error('ShapeLayer: 2D context unavailable')
-
     this._resources.set(item.id, {
       texture,
-      canvas,
-      ctx2d,
-      width: canvas.width,
-      height: canvas.height,
+      width: ctx.stage.width,
+      height: ctx.stage.height,
       lastSignature: '',
     })
   }
@@ -130,8 +131,6 @@ export class ShapeLayer implements Layer<ActiveShapeClip> {
     const { gl } = ctx
 
     if (res.width !== ctx.stage.width || res.height !== ctx.stage.height) {
-      res.canvas.width = ctx.stage.width
-      res.canvas.height = ctx.stage.height
       res.width = ctx.stage.width
       res.height = ctx.stage.height
       res.lastSignature = ''
@@ -139,10 +138,21 @@ export class ShapeLayer implements Layer<ActiveShapeClip> {
 
     const sig = paintSignature(item, ctx.stage)
     if (res.lastSignature !== sig) {
-      paintShape(res.ctx2d, item, ctx.stage)
+      if (!this._scratchCanvas) {
+        this._scratchCanvas = document.createElement('canvas')
+        const ctx2d = this._scratchCanvas.getContext('2d')
+        if (!ctx2d) throw new Error('ShapeLayer: 2D context unavailable')
+        this._scratchCtx = ctx2d
+      }
+      const canvas = this._scratchCanvas
+      if (canvas.width !== ctx.stage.width || canvas.height !== ctx.stage.height) {
+        canvas.width = ctx.stage.width
+        canvas.height = ctx.stage.height
+      }
+      paintShape(this._scratchCtx!, item, ctx.stage)
       gl.bindTexture(gl.TEXTURE_2D, res.texture)
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, res.canvas as TexImageSource)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas as TexImageSource)
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
       gl.bindTexture(gl.TEXTURE_2D, null)
       res.lastSignature = sig
@@ -170,6 +180,8 @@ export class ShapeLayer implements Layer<ActiveShapeClip> {
     this._program = null
     this._vao = null
     this._gl = null
+    this._scratchCanvas = null
+    this._scratchCtx = null
   }
 
   notifyContextLost(): void {
@@ -177,6 +189,8 @@ export class ShapeLayer implements Layer<ActiveShapeClip> {
     this._program = null
     this._vao = null
     this._gl = null
+    // Scratch canvas is plain 2D-canvas state, not a GL object — kept across
+    // context loss; _ensurePipeline rebuilds the GL side.
   }
 
   private _ensurePipeline(gl: WebGL2RenderingContext): void {

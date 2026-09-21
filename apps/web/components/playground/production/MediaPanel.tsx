@@ -38,9 +38,12 @@ import {
   type InsertAssetResult,
 } from '@elah/editor'
 import { cn } from '@/lib/utils'
+import { isImageFile, needsJpegConversion, toJpegFile } from '@/lib/imageNormalize'
 import { PixabayResults } from './PixabayResults'
 import { PexelsResults } from './PexelsResults'
 import { FreesoundResults } from './FreesoundResults'
+import { ProgressBar } from './ai/ProgressBar'
+import { saveMediaBlob, deleteMediaBlob } from '@/lib/media-file-storage'
 
 export type PanelMode = 'stock' | 'photos' | 'audio'
 
@@ -204,6 +207,7 @@ function AssetCard({
           onClick={(e) => {
             e.stopPropagation()
             removeAsset(asset.id)
+            void deleteMediaBlob(asset.id)
           }}
           title="Remove from library"
           className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded bg-black/60 text-white/80 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
@@ -303,6 +307,8 @@ export function MediaPanel({ style, mode = 'stock' }: { style?: React.CSSPropert
   const [urlFallback, setUrlFallback] = useState<string | null>(null)
   const [insertNotice, setInsertNotice] = useState<InsertNotice | null>(null)
   const [activeAssetId, setActiveAssetId] = useState<string | null>(null)
+  const [converting, setConverting] = useState(0)
+  const [convertError, setConvertError] = useState<string | null>(null)
 
   const cfg = PANEL_CONFIG[mode]
   const sourceOptions = SOURCE_OPTIONS[mode]
@@ -319,7 +325,53 @@ export function MediaPanel({ style, mode = 'stock' }: { style?: React.CSSPropert
 
   const onPick = useCallback(async (files: FileList | File[] | null) => {
     if (!files || ('length' in files && files.length === 0)) return
-    await importFiles(files)
+
+    const picked = Array.from(files)
+    // `isImageFile` rather than a MIME check: the Android HEIC this exists for
+    // arrives with an empty `type`, which is also how video/audio would look —
+    // so the extension is the only thing that distinguishes them.
+    const toConvert = picked.filter((f) => isImageFile(f) && needsJpegConversion(f))
+    if (toConvert.length === 0) {
+      const result = await importFiles(picked)
+      for (const asset of result.imported) {
+        const file = picked.find(
+          (f) => f.name === asset.name && f.size === asset.byteSize && f.lastModified === asset.lastModified,
+        )
+        if (file) void saveMediaBlob(asset.id, file, { name: file.name, type: file.type })
+      }
+      return
+    }
+
+    setConvertError(null)
+    setConverting(toConvert.length)
+    const failed: string[] = []
+    try {
+      const prepared = await Promise.all(
+        picked.map(async (file) => {
+          if (!toConvert.includes(file)) return file
+          try {
+            return await toJpegFile(file)
+          } catch {
+            failed.push(file.name)
+            return null
+          }
+        }),
+      )
+      const validFiles = prepared.filter((f): f is File => f !== null)
+      const result = await importFiles(validFiles)
+      for (const asset of result.imported) {
+        const file = validFiles.find(
+          (f) => f.name === asset.name && f.size === asset.byteSize && f.lastModified === asset.lastModified,
+        )
+        if (file) void saveMediaBlob(asset.id, file, { name: file.name, type: file.type })
+      }
+    } finally {
+      setConverting(0)
+    }
+
+    if (failed.length > 0) {
+      setConvertError(`Could not read ${failed.join(', ')} — try a JPEG or PNG.`)
+    }
   }, [])
 
   const onAddUrl = useCallback(async () => {
@@ -457,6 +509,24 @@ export function MediaPanel({ style, mode = 'stock' }: { style?: React.CSSPropert
             {urlError && <span className="mt-1 text-[11px] text-ed-error">{urlError}</span>}
             {urlFallback && <span className="mt-1 text-[11px] text-ed-text-muted">{urlFallback}</span>}
           </>
+        )}
+
+        {converting > 0 && (
+          <div role="status" className="mt-2 rounded-md border border-ed-border bg-ed-elevated px-2.5 py-1.5">
+            <ProgressBar
+              indeterminate
+              label={`Converting ${converting} ${converting === 1 ? 'image' : 'images'}…`}
+            />
+          </div>
+        )}
+
+        {convertError && (
+          <div
+            role="alert"
+            className="mt-2 rounded-md border border-ed-error/40 bg-ed-error/10 px-2.5 py-1.5 text-[12px] text-ed-error"
+          >
+            {convertError}
+          </div>
         )}
 
         {insertNotice && (

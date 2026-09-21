@@ -4,6 +4,8 @@ import type {
   EngineEvent,
   EngineEventPayload,
   InitialTrackConfig,
+  LoadProjectHistory,
+  LoadProjectTransport,
   Project,
   TimelineConfig,
   Track,
@@ -53,7 +55,9 @@ function buildEmptyProject(
       kind: spec.kind,
       name: spec.name,
       order,
-      height: defaultTrackHeight,
+      height: spec.height ?? defaultTrackHeight,
+      protected: spec.protected,
+      pinned: spec.pinned,
     }),
   )
 
@@ -194,20 +198,37 @@ export class TimelineEngine {
   // Track operations
   // ---------------------------------------------------------------------------
 
-  /** New tracks append below existing ones (order = current count) and start with an empty clip list. */
   /**
-   * Track model: the renderer composites a single video track, so video is
-   * capped at one — adding a video track when one already exists returns the
-   * existing track (idempotent) rather than creating a second. Audio and elements
-   * tracks may have any number of lanes.
+   * Track model: any number of tracks of any kind. Multiple video tracks
+   * composite in track order — the resolver derives zIndex from `track.order`
+   * (topmost lane draws on top), so overlapping clips on separate video lanes
+   * layer rather than conflict.
+   *
+   * Placement: a new video track slots in directly below the last existing
+   * video track (keeping video lanes grouped at the top, above audio/elements);
+   * every other kind appends below all existing tracks.
    */
   addTrack(kind: TrackKind, options?: Partial<CreateTrackOptions>): Track {
-    if (kind === 'video') {
-      const existingVideo = this.project.tracks.find((t) => t.kind === 'video')
-      if (existingVideo) return existingVideo
-    }
+    const videoOrders = this.project.tracks
+      .filter((t) => t.kind === 'video')
+      .map((t) => t.order)
+    // Bottom-pinned lanes (audio + its generated subtitle lanes, in this
+    // product) must stay below every freely-added track. A new pinned track
+    // joins that block at the very end (today's plain-append behaviour); a
+    // new non-pinned, non-video track inserts just above the block instead
+    // of after it, which is the only way "add track" can land between video
+    // and a bar that's meant to stay fixed at the bottom. No pinned tracks
+    // means this is a no-op — same append-at-end behaviour as before.
+    const pinnedOrders = this.project.tracks
+      .filter((t) => t.pinned === 'bottom')
+      .map((t) => t.order)
+    const order =
+      kind === 'video' && videoOrders.length > 0
+        ? Math.max(...videoOrders) + 1
+        : options?.pinned === 'bottom' || pinnedOrders.length === 0
+          ? this.project.tracks.length
+          : Math.min(...pinnedOrders)
 
-    const order = this.project.tracks.length
     const track = createTrack({
       kind,
       order,
@@ -217,7 +238,14 @@ export class TimelineEngine {
 
     this.commit(
       (draft) => {
+        // Make room at the insertion point: everything at or below it shifts
+        // down one slot. For plain appends nothing is >= tracks.length, so
+        // this is a no-op.
+        for (const t of draft.tracks) {
+          if (t.order >= track.order) t.order += 1
+        }
         draft.tracks.push(track as Draft<Track>)
+        draft.tracks.sort((a, b) => a.order - b.order)
         draft.clips[track.id] = []
       },
       `Add ${kind} track`,
@@ -227,8 +255,11 @@ export class TimelineEngine {
     return track
   }
 
-  /** Removes the track's clips with it, all in a single undo entry. */
+  /** Removes the track's clips with it, all in a single undo entry. No-op for protected tracks. */
   removeTrack(trackId: string): void {
+    const track = this.project.tracks.find((t) => t.id === trackId)
+    if (track?.protected) return
+
     this.commit(
       (draft) => removeTrack(draft, trackId),
       `Remove track`,
@@ -439,17 +470,23 @@ export class TimelineEngine {
     if (!existing) return
 
     const isUnlimited = existing.type === 'text' || existing.type === 'shape' || existing.type === 'freehand'
+    // Every timeline frame of a speed-changed clip consumes `speed` source
+    // frames, so the source-window invariant becomes durationFrames * speed
+    // <= sourceDurationFrames. speed is always 1 for non-video clips (the UI
+    // never sets it), so this is a no-op there.
+    const speed = existing.speed ?? 1
 
-    const maxDuration = isUnlimited ? Infinity : existing.sourceDurationFrames
+    const maxDuration = isUnlimited ? Infinity : Math.floor(existing.sourceDurationFrames / speed)
     const clampedDuration = Math.min(maxDuration, Math.max(1, toFrame(durationFrames)))
 
     // For media clips, the left edge can't extend further left than the source
-    // has available frames (i.e., existing.sourceStartFrame frames to the left).
+    // has available frames (i.e., existing.sourceStartFrame / speed timeline
+    // frames to the left — at speed=1 this is the original 1:1 relationship).
     // Generated clips (text, shape, freehand) have no source constraint and are always allowed to grow left.
     const rawStart = Math.max(0, toFrame(startFrame))
     const minAllowedStart = isUnlimited
       ? 0
-      : Math.max(0, existing.startFrame - existing.sourceStartFrame)
+      : Math.max(0, existing.startFrame - Math.floor(existing.sourceStartFrame / speed))
     const newStart = Math.max(minAllowedStart, rawStart)
 
     // Reject if the trimmed range would overlap another clip on this track.
@@ -461,7 +498,7 @@ export class TimelineEngine {
     // Generated clips have no real source media, skip the source window adjustment.
     const sourceStartFrame = isUnlimited
       ? existing.sourceStartFrame
-      : Math.max(0, existing.sourceStartFrame + startDelta)
+      : Math.max(0, existing.sourceStartFrame + Math.round(startDelta * speed))
 
     this.commit((draft) => {
       updateClip(draft, clipId, trackId, {
@@ -471,6 +508,58 @@ export class TimelineEngine {
       })
       pruneOrphanedTransitions(draft)
     }, 'Trim clip')
+  }
+
+  /**
+   * Change a video clip's playback speed (e.g. 2x/4x fast-forward, or a
+   * slow-down < 1). Video only — clips on this timeline are audio-stripped,
+   * so there is no audio time-stretch concern; calling this on a non-video
+   * clip is a no-op.
+   *
+   * Recomputes `durationFrames` atomically with `speed` so the clip's
+   * on-timeline length always reflects how much of its trimmed source window
+   * it is currently consuming: `round(durationFrames * speed)` stays within
+   * `sourceDurationFrames`. `sourceStartFrame` / `sourceDurationFrames`
+   * (the trim window into the source, always at 1x) are untouched — only the
+   * RATE at which that window is consumed changes.
+   *
+   * Speeding up (speed > oldSpeed) always shrinks the clip in place — no
+   * overlap is possible. Slowing down grows the clip; if that would overlap
+   * the next clip on the track, growth is clamped to the gap before it (no
+   * ripple — matches trimClip's overlap behavior) rather than growing into it.
+   */
+  setClipSpeed(clipId: string, trackId: string, speed: number): void {
+    if (this.isTrackLocked(trackId)) return
+    const trackClips = this.project.clips[trackId]
+    const existing = trackClips?.find((c) => c.id === clipId)
+    if (!existing || existing.type !== 'video') return
+
+    const clampedSpeed = Math.max(0.25, Math.min(4, speed))
+    const oldSpeed = existing.speed ?? 1
+    if (clampedSpeed === oldSpeed) return
+
+    const maxDuration = Math.max(1, Math.floor(existing.sourceDurationFrames / clampedSpeed))
+    let newDuration = Math.min(
+      maxDuration,
+      Math.max(1, Math.round((existing.durationFrames * oldSpeed) / clampedSpeed)),
+    )
+
+    // Growing (slow-down): never ripple into the next clip — clamp to the
+    // gap in front of it instead, mirroring trimClip's silent-reject-via-clamp
+    // behavior rather than throwing on overlap.
+    if (newDuration > existing.durationFrames) {
+      const candidate = { startFrame: existing.startFrame, durationFrames: newDuration }
+      const overlaps = findOverlaps(trackClips, candidate, clipId)
+      if (overlaps.length > 0) {
+        const nearestStart = Math.min(...overlaps.map((c) => c.startFrame))
+        newDuration = Math.max(1, nearestStart - existing.startFrame)
+      }
+    }
+
+    this.commit((draft) => {
+      updateClip(draft, clipId, trackId, { speed: clampedSpeed, durationFrames: newDuration })
+      pruneOrphanedTransitions(draft)
+    }, 'Change clip speed')
   }
 
   /** The left half keeps the original clip id; returns null when atFrame isn't strictly inside the clip. */
@@ -606,15 +695,77 @@ export class TimelineEngine {
   }
 
   // ---------------------------------------------------------------------------
-  // Project loading
+  // Project loading (restore)
   // ---------------------------------------------------------------------------
 
-  loadProject(project: Project): void {
+  /**
+   * Replace the whole composition with a stored one.
+   *
+   * This is the restore half of `getProject()`: what the editor calls when a
+   * saved document comes back from the server. It is deliberately *not* an
+   * edit —
+   *
+   *  - **Atomic.** Tracks, clips, transitions, stage, fps and master volume are
+   *    swapped in one assignment. No subscriber ever sees the old tracks beside
+   *    the new clips, which is the state every `clips[track.id]` lookup in the
+   *    app would read as `undefined`.
+   *  - **The new baseline.** History is dropped, not appended to. Undo after
+   *    opening a project must do nothing; walking back into the empty timeline
+   *    that existed for a few milliseconds before the document arrived would
+   *    look exactly like losing the project.
+   *  - **Stopped at the start.** The playhead belonged to the composition being
+   *    replaced. `'project:loaded'` carries the instruction, because
+   *    `PlaybackEngine` is a separate object that this one deliberately does not
+   *    know about; the composition layer wires the two together
+   *    (`EditorProvider`). Pass `transport: 'keep'` for a repair pass that
+   *    replaces references inside the composition already on screen, where a
+   *    jump to frame 0 would be an unexplained surprise.
+   *
+   * `project` must already be a valid `Project`. Anything arriving as JSON goes
+   * through {@link readProjectDocument} first — that is where an unreadable or
+   * too-new document is refused, and it is separate from this method so the
+   * refusal can be shown to the user before the editor's contents are thrown
+   * away.
+   *
+   * An in-progress `batch()` or drag is abandoned rather than merged: both
+   * describe edits to a composition that no longer exists.
+   *
+   * **`history: 'keep'` is the exception, and only one caller has it.** The
+   * media re-link (`relinkProjectMedia`) does not bring a new composition — it
+   * hands back the one already on screen with internal library references
+   * repaired, and it lands whenever the project's assets finish importing,
+   * which can be long after the open. Everything above stops being true for it:
+   * there is no earlier composition to protect undo from, the user's edits since
+   * the open are real history, and an open drag is a real gesture that still has
+   * a `commitInteraction()` coming. So that call keeps the stacks, the
+   * interaction snapshot and any open batch intact. (Entries already on the
+   * stacks still hold the pre-repair references; undoing past the repair costs a
+   * filmstrip, not work — and those ids are session-scoped anyway.)
+   */
+  loadProject(
+    project: Project,
+    options?: { transport?: LoadProjectTransport; history?: LoadProjectHistory },
+  ): void {
+    if (options?.history !== 'keep') {
+      this.batchDepth = 0
+      this.batchPrev = null
+      this.batchDescription = null
+      this.interactionPrev = null
+      this.undoStack = []
+      this.redoStack = []
+    }
+
     this.project = project
-    this.undoStack = []
-    this.redoStack = []
+
+    // 'change' first, so anything that re-reads the engine from
+    // 'project:loaded' (the transport reset does) sees stores already synced to
+    // the composition it is resetting for.
     this.emit('change', this.project)
-    this.emit('history:change', { canUndo: false, canRedo: false })
+    this.emit('history:change', { canUndo: this.canUndo(), canRedo: this.canRedo() })
+    this.emit('project:loaded', {
+      project: this.project,
+      transport: options?.transport ?? 'rewind',
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -650,24 +801,34 @@ export class TimelineEngine {
     try {
       recipe()
     } catch (err) {
-      this.batchDepth--
+      this.batchDepth = Math.max(0, this.batchDepth - 1)
       if (this.batchDepth === 0) {
-        // Roll back any partial mutations from inner commits.
-        this.project = this.batchPrev!
+        // Roll back any partial mutations from inner commits — unless a
+        // loadProject inside the recipe already replaced the composition those
+        // mutations belonged to, in which case there is nothing to roll back to.
+        if (this.batchPrev !== null) this.project = this.batchPrev
         this.batchPrev = null
         this.batchDescription = null
       }
       throw err
     }
 
-    this.batchDepth--
+    // Clamped rather than decremented: a loadProject inside the recipe resets
+    // the depth, and a negative one would make the *next* batch think it is
+    // nested inside a transaction that no longer exists.
+    this.batchDepth = Math.max(0, this.batchDepth - 1)
     if (this.batchDepth > 0) return // nested batch — wait for outermost
 
-    const prev = this.batchPrev!
+    const prev = this.batchPrev
     const next = this.project
     const desc = this.batchDescription ?? 'Batch'
     this.batchPrev = null
     this.batchDescription = null
+
+    // The transaction was abandoned by a restore. Recording an entry now would
+    // put `undo` one step away from a composition that was thrown away — and
+    // with no snapshot to return to, that step leads nowhere at all.
+    if (prev === null) return
 
     if (next === prev) return // no net change — nothing to record
 

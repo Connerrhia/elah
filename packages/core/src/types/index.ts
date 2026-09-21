@@ -7,18 +7,125 @@
 /** An exact frame position. Always a non-negative integer. */
 export type FrameCount = number
 
-export type TextAnimationKind = 'fade'
+/**
+ * Entry/exit animation styles available to text and shape clips.
+ *
+ * `fade` drives opacity only. `spin` and the four `slide-*` kinds drive the
+ * clip's `Transform` (rotation / position) and leave opacity untouched.
+ * The human-readable option list for UI pickers is
+ * `TEXT_ANIMATION_KINDS` in `resolver/textAnimation.ts` — a `Record` keyed by
+ * this union, so it cannot drift from it.
+ */
+export type TextAnimationKind =
+  | 'fade'
+  | 'spin'
+  | 'slide-up'
+  | 'slide-down'
+  | 'slide-left'
+  | 'slide-right'
 
 /**
- * Entry/exit animation descriptor for text clips.
- * Resolved into opacity inside resolveTimeline — both renderers consume it
- * via the existing opacity field, so parity is automatic.
+ * Entry/exit animation descriptor. Used by both `Clip.textAnimation` and
+ * `Clip.shapeAnimation` — the two fields share this one shape.
+ *
+ * Resolved by `sampleTextAnimation` (see `resolver/textAnimation.ts`) into the
+ * two channels every renderer already understands: an opacity ramp and, for the
+ * kinds that move or rotate the clip, a concrete `Transform` that replaces the
+ * clip's authored one for the frames the ramp covers. Renderers stay
+ * animation-unaware, so GPU/export parity is automatic.
  */
+/**
+ * Easing curves available to a `MotionSpec`.
+ *
+ * `quad-in` / `quad-out` are the curves the enum animation kinds have always
+ * used, kept so the legacy path is expressible in the new model rather than
+ * living beside it.
+ *
+ * `back-*` and `elastic-out` OVERSHOOT — they return values outside 0..1 partway
+ * through. That is the point: overshoot is most of what reads as deliberate
+ * motion design rather than a linear slide. It also means any channel driven by
+ * them must tolerate passing its target and coming back, which is fine for
+ * position/rotation/scale and is why opacity is clamped at the point of use.
+ */
+export type TextAnimationEasing =
+  | 'linear'
+  | 'quad-in'
+  | 'quad-out'
+  | 'quad-in-out'
+  | 'cubic-out'
+  | 'expo-out'
+  | 'back-in'
+  | 'back-out'
+  | 'elastic-out'
+  | 'bounce-out'
+
+/**
+ * One end of a layered animation: the state the clip is in at the FAR end of
+ * its ramp, with the near end always being the clip's authored resting state.
+ *
+ * Rest is structurally fixed — opacity 1, zero offset, scale multiplier 1, zero
+ * rotation delta — so only the extreme is stored. Encoding both ends would allow
+ * a spec whose "to" is not rest, i.e. a clip that never reaches the state the
+ * author set in the properties panel, which is a bug generator rather than a
+ * feature.
+ *
+ * Read direction differs per end, and that asymmetry mirrors how the two ramps
+ * actually work:
+ *   in  — the clip STARTS at the extreme and arrives at rest as the ramp closes.
+ *   out — the clip starts at rest and DEPARTS to the extreme.
+ *
+ * Every field is optional; an omitted channel is left at rest and contributes
+ * nothing, so a spec only describes what it actually animates.
+ */
+export interface MotionSpec {
+  /** Opacity at the extreme, 0..1. Rest is 1. Omitted = no opacity ramp. */
+  opacity?: number
+  /** Horizontal offset from rest at the extreme, normalized 0..1 of stage width. */
+  offsetX?: number
+  /** Vertical offset from rest at the extreme, normalized 0..1 of stage height. */
+  offsetY?: number
+  /**
+   * Scale MULTIPLIER at the extreme, applied on top of the clip's authored
+   * scale. 0.8 = starts (or ends) at 80% of whatever size the author chose.
+   * A multiplier rather than an absolute so a template never fights the scale
+   * slider. Rest is 1.
+   */
+  scale?: number
+  /** Rotation delta from rest at the extreme, in radians. Positive = clockwise. */
+  rotation?: number
+  /**
+   * Curve for the geometric channels (offset, scale, rotation).
+   * Defaults to `quad-out` on an entry and `quad-in` on an exit — an entry
+   * decelerating into place and an exit accelerating away, which is what the
+   * enum kinds have always done.
+   */
+  ease?: TextAnimationEasing
+  /**
+   * Curve for opacity, kept separate because it usually wants to stay linear
+   * while the geometry overshoots. Defaults to `linear`, which is both the
+   * video convention for a cross-fade and what every already-authored project
+   * was written against.
+   */
+  opacityEase?: TextAnimationEasing
+}
+
 export interface TextAnimation {
   in?: TextAnimationKind
   out?: TextAnimationKind
   /** Duration of the in/out ramp in frames (shared by both directions) */
   durationFrames: number
+  /**
+   * Layered entry motion. When present this REPLACES whatever `in` names —
+   * the enum is resolved into a `MotionSpec` internally, so the two are the
+   * same machinery and this is simply the expressive form of it.
+   *
+   * Lets a single end drive several channels at once (fade AND rise AND scale),
+   * which the one-kind-per-end enum cannot express. Written by text templates;
+   * the properties panel's Entry/Exit selects still write `in` / `out`.
+   */
+  inMotion?: MotionSpec
+  /** Layered exit motion. Replaces `out` when present. See `inMotion`. */
+  outMotion?: MotionSpec
 }
 
 /**
@@ -36,6 +143,13 @@ export interface Transform {
   rotation: number
   /** Anchor point within the clip's own bounding box, normalized 0..1 */
   anchor: { x: number; y: number }
+  /**
+   * Extra horizontal stretch multiplied on top of `scale`. Omitted means 1, so
+   * every transform written before free resize existed stays uniform.
+   */
+  scaleX?: number
+  /** Extra vertical stretch multiplied on top of `scale`. Omitted means 1. */
+  scaleY?: number
 }
 
 export type ClipType = 'video' | 'audio' | 'text' | 'image' | 'shape' | 'freehand'
@@ -87,6 +201,18 @@ export interface Clip {
   fontFamily?: string
   fontWeight?: 'normal' | 'bold'
   textAlign?: 'left' | 'center' | 'right'
+  /** CSS color string for the box painted behind the glyphs. Undefined = no background. */
+  backgroundColor?: string
+  /** Opacity of `backgroundColor`, 0–1. Default 1. */
+  backgroundOpacity?: number
+  /** Space in stage-space pixels between the glyphs and the background/border box. */
+  padding?: number
+  /** Corner radius of the background/border box, in stage-space pixels. */
+  borderRadius?: number
+  /** Stroke width of the box border, in stage-space pixels. 0 (or omitted) = no border. */
+  borderWidth?: number
+  /** CSS color string for the box border. */
+  borderColor?: string
 
   // --- Shape style (shape clips only) ---
   /** Which SVG primitive to render */
@@ -108,6 +234,28 @@ export interface Clip {
 
   volume?: number   // 0 – 1
   opacity?: number  // 0 – 1
+  /**
+   * Playback speed multiplier for VIDEO clips only (audio clips on this
+   * timeline are stripped of audio, so no time-stretch is needed). 1 = normal
+   * speed (default when omitted). Clamped to [0.25, 4] by TimelineEngine's
+   * setClipSpeed(). Changing it recomputes `durationFrames` so the clip's
+   * on-timeline length reflects the new speed while `sourceStartFrame` /
+   * `sourceDurationFrames` continue to describe the trim window into the
+   * source asset at 1x. See resolveTimeline.ts for how this maps timeline
+   * frames to source frames, and ExportWorker.ts for how export honors it.
+   */
+  speed?: number
+  /**
+   * Rounded-corner mask for video/image clips, as a fraction 0..0.5 of the
+   * *shorter* rendered side. 0 (or omitted) = square corners; 0.5 = a full
+   * ellipse, which on a square draw rect is a circle.
+   */
+  cornerRadius?: number
+  /**
+   * Source-space crop window, normalized 0..1 of the media's natural size,
+   * origin top-left. Omitted = the full frame. Video/image clips only.
+   */
+  crop?: { x: number; y: number; width: number; height: number }
   locked?: boolean
   disabled?: boolean
   /** Optional spatial transform; undefined means the renderer applies its own default */
@@ -133,6 +281,16 @@ export interface Track {
   solo: boolean
   /** Linear gain multiplier for the track, 0..2. Default 1 (unity). */
   volume?: number
+  /** When true, the track cannot be removed by the user. */
+  protected?: boolean
+  /**
+   * When `'bottom'`, `addTrack` keeps this lane (and any other pinned-bottom
+   * lane) below every non-pinned track rather than appending new tracks
+   * after it — the Descript-style layout where video sits on top, freely
+   * added tracks land in the middle, and a fixed audio+subtitle bar stays at
+   * the very bottom regardless of insertion order.
+   */
+  pinned?: 'bottom'
 }
 
 /**
@@ -160,6 +318,12 @@ export interface InitialTrackConfig {
   kind: TrackKind
   /** Display name; falls back to a kind-based default when omitted. */
   name?: string
+  /** Height in pixels; falls back to the engine's defaultTrackHeight when omitted. */
+  height?: number
+  /** When true, the track cannot be removed by the user. */
+  protected?: boolean
+  /** See `Track.pinned`. */
+  pinned?: 'bottom'
 }
 
 /** Config passed when creating a TimelineEngine instance */
@@ -221,6 +385,37 @@ export type EngineEvent =
   | 'transition:added'
   | 'transition:removed'
   | 'history:change'
+  | 'project:loaded'
+
+/**
+ * What the playhead should do when a composition is loaded.
+ *
+ * `'rewind'` — opening or reloading a document: stop and return to frame 0,
+ * because the frame the user was on belonged to a composition that is gone.
+ * `'keep'` — a repair pass over the composition already on screen (see
+ * `relinkProjectMedia`), where moving the playhead would be an unexplained
+ * jump the user did not ask for.
+ */
+export type LoadProjectTransport = 'rewind' | 'keep'
+
+/**
+ * What undo/redo should do when a composition is loaded.
+ *
+ * `'reset'` — an open or a reload: the document that just arrived *is* the
+ * history's starting point, and ctrl+Z must not walk back into the empty
+ * timeline that existed before it landed.
+ * `'keep'` — a repair pass over the composition already on screen (see
+ * `relinkProjectMedia`), which lands an unpredictable stretch of time after the
+ * open. By then the user may have trimmed a clip, added a title, or be
+ * mid-drag; throwing their undo stack away to swap an internal reference would
+ * be a loss they never asked for and cannot explain.
+ */
+export type LoadProjectHistory = 'reset' | 'keep'
+
+export interface ProjectLoadedEvent {
+  project: Project
+  transport: LoadProjectTransport
+}
 
 export type EngineEventPayload = {
   change: Project
@@ -233,4 +428,5 @@ export type EngineEventPayload = {
   'transition:added': Transition
   'transition:removed': string
   'history:change': { canUndo: boolean; canRedo: boolean }
+  'project:loaded': ProjectLoadedEvent
 }

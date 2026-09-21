@@ -21,6 +21,7 @@
 import * as mb from 'mediabunny'
 
 import { trace, traceEnabled, enableChannels, type TraceChannel } from '../debug/trace'
+import { computeExportDimensions } from './outputDimensions'
 
 // ---------------------------------------------------------------------------
 // Logging helpers — routed through the channel-based tracer.
@@ -91,7 +92,7 @@ import type {
   ActiveShapeClip,
   ActiveFreehandClip,
 } from '../resolver/scene'
-import { resolveDrawRect } from '../renderer/gpu/layers/drawRect'
+import { resolveDrawRect, normalizeCrop, type CropRect } from '../renderer/gpu/layers/drawRect'
 import { computeTextLayout } from '../renderer/gpu/layers/textLayout'
 import type { ExportOptions, RenderedAudio, WorkerOutMessage } from './types'
 
@@ -114,11 +115,11 @@ self.onmessage = async (e: MessageEvent) => {
     const buffer = await runExport(project, options, audio)
     xlog('worker', 'posting buffer to main thread', { size: fmtBytes(buffer.byteLength) })
     const msg: WorkerOutMessage = { type: 'done', buffer }
-    ;(self as unknown as Worker).postMessage(msg, [buffer])
+      ; (self as unknown as Worker).postMessage(msg, [buffer])
   } catch (err) {
     xlog('worker', `export failed: ${String(err)}`)
     const msg: WorkerOutMessage = { type: 'error', message: String(err) }
-    ;(self as unknown as Worker).postMessage(msg)
+      ; (self as unknown as Worker).postMessage(msg)
   }
 }
 
@@ -132,12 +133,9 @@ async function runExport(project: Project, options: ExportOptions, audio: Render
   const totalFrames = getTotalFrames(project.clips)
 
   // Scale the output canvas to the requested resolution while preserving the
-  // project stage's aspect ratio. Even dimensions are required by most video
-  // codecs (H.264/VP9 need even width/height for chroma subsampling).
-  const outputHeight = options.outputHeight ?? stageHeight
-  const scale = outputHeight / stageHeight
-  const width = Math.round((stageWidth * scale) / 2) * 2
-  const height = Math.round(outputHeight / 2) * 2
+  // project stage's aspect ratio — see computeExportDimensions for why this
+  // scales against the short edge rather than raw height.
+  const { width, height } = computeExportDimensions(stageWidth, stageHeight, options.outputHeight)
 
   xlog('run', 'starting', {
     stage: `${stageWidth}x${stageHeight}`,
@@ -277,8 +275,13 @@ async function runExport(project: Project, options: ExportOptions, audio: Render
     // Pre-compute source timestamps for every export frame this clip covers.
     // Using +0.5 midpoint matches the preview's Math.round(PTS / usPerFrame)
     // convention and avoids off-by-one on sources with a different frame rate.
+    // `speed` (fast-forward/slow-down) scales how far the source advances per
+    // export frame — the timestamps stay monotonically increasing for any
+    // speed >= 0, so the sequential canvasesAtTimestamps() generator handles
+    // 2x/4x by naturally skipping source frames, with no re-seek required.
+    const speed = clip.speed ?? 1
     const sourceTimestamps = Array.from({ length: clip.durationFrames }, (_, i) =>
-      (clip.sourceStartFrame + i + 0.5) / fps,
+      (clip.sourceStartFrame + i * speed + 0.5) / fps,
     )
     clipDecoders.set(clip.id, {
       gen: sink.canvasesAtTimestamps(sourceTimestamps),
@@ -357,7 +360,7 @@ async function runExport(project: Project, options: ExportOptions, audio: Render
     }
 
     const msg: WorkerOutMessage = { type: 'progress', frame, totalFrames }
-    ;(self as unknown as Worker).postMessage(msg)
+      ; (self as unknown as Worker).postMessage(msg)
   }
 
   const loopMs = performance.now() - loopStart
@@ -482,7 +485,7 @@ async function renderFrame(
         })
       }
       if (wrapped) {
-        drawMedia(ctx, wrapped.canvas, entry.item.transform, stageW, stageH)
+        drawMedia(ctx, wrapped.canvas, entry.item.transform, stageW, stageH, entry.item.cornerRadius, entry.item.crop)
       } else {
         if (isDebugFrame) xlog('render:frame0', `video layer — WARNING: no canvas for clip "${entry.item.id}"`)
       }
@@ -497,7 +500,7 @@ async function renderFrame(
         })
       }
       if (bitmap) {
-        drawMedia(ctx, bitmap, entry.item.transform, stageW, stageH)
+        drawMedia(ctx, bitmap, entry.item.transform, stageW, stageH, entry.item.cornerRadius, entry.item.crop)
       }
     } else if (entry.kind === 'text') {
       if (isDebugFrame) {
@@ -568,14 +571,47 @@ function drawMedia(
   transform: ReturnType<typeof resolveTimeline>['videos'][0]['transform'],
   stageW: number,
   stageH: number,
+  cornerRadius?: number,
+  crop?: CropRect,
 ): void {
-  const rect = resolveDrawRect(transform, stageW, stageH, source.width, source.height)
+  const rect = resolveDrawRect(transform, stageW, stageH, source.width, source.height, crop)
   const cx = rect.x + rect.width / 2
   const cy = rect.y + rect.height / 2
 
   ctx.translate(cx, cy)
   ctx.rotate(rect.rotation)
-  ctx.drawImage(source, -rect.width / 2, -rect.height / 2, rect.width, rect.height)
+
+  // Mirror the GPU shader's uRadius mask: cornerRadius is a fraction (0..0.5)
+  // of each axis's own extent, so a per-corner elliptical radius at the max
+  // (0.5) rounds all the way to an ellipse inscribed in the rect — same as
+  // QUAD_FRAG_SRC's rounded-box SDF.
+  if (cornerRadius && cornerRadius > 0) {
+    const rx = Math.min(cornerRadius, 0.5) * rect.width
+    const ry = Math.min(cornerRadius, 0.5) * rect.height
+    ctx.beginPath()
+    ctx.roundRect(-rect.width / 2, -rect.height / 2, rect.width, rect.height, [{ x: rx, y: ry }])
+    ctx.clip()
+  }
+
+  // Mirror the GPU shader's uCrop: sample only the cropped source sub-rect
+  // (9-arg drawImage) instead of the full source (5-arg) — same normalized
+  // 0..1 top-left-origin crop window as resolveDrawRect used to size `rect`.
+  if (crop) {
+    const c = normalizeCrop(crop)
+    ctx.drawImage(
+      source,
+      c.x * source.width,
+      c.y * source.height,
+      c.width * source.width,
+      c.height * source.height,
+      -rect.width / 2,
+      -rect.height / 2,
+      rect.width,
+      rect.height,
+    )
+  } else {
+    ctx.drawImage(source, -rect.width / 2, -rect.height / 2, rect.width, rect.height)
+  }
 }
 
 function drawText(
@@ -585,9 +621,7 @@ function drawText(
   stageH: number,
 ): void {
   const layout = computeTextLayout(ctx, clip, { width: stageW, height: stageH })
-  ctx.fillStyle = layout.style.color
-  ctx.textAlign = layout.style.textAlign
-  ctx.textBaseline = 'middle'
+  const { backgroundColor, backgroundOpacity, borderWidth, borderColor, borderRadius } = layout.style
 
   const rotation = clip.transform?.rotation ?? 0
   if (rotation !== 0) {
@@ -598,9 +632,61 @@ function drawText(
     ctx.translate(-cx, -cy)
   }
 
+  // Background panel and border — mirrors TextLayer.paint so the export matches
+  // the preview. Without this the exported file showed bare glyphs while the
+  // editor showed the caption on its panel.
+  if (backgroundColor) {
+    ctx.save()
+    ctx.globalAlpha *= backgroundOpacity
+    ctx.fillStyle = backgroundColor
+    roundRectPath(ctx, layout.box.x, layout.box.y, layout.box.width, layout.box.height, borderRadius)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  if (borderWidth > 0) {
+    ctx.save()
+    ctx.strokeStyle = borderColor
+    ctx.lineWidth = borderWidth
+    const inset = borderWidth / 2
+    roundRectPath(
+      ctx,
+      layout.box.x + inset,
+      layout.box.y + inset,
+      layout.box.width - borderWidth,
+      layout.box.height - borderWidth,
+      Math.max(0, borderRadius - inset),
+    )
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  ctx.fillStyle = layout.style.color
+  ctx.textAlign = layout.style.textAlign
+  ctx.textBaseline = 'middle'
+
   for (let i = 0; i < layout.lines.length; i++) {
     ctx.fillText(layout.lines[i], layout.anchorX, layout.firstLineY + i * layout.lineAdvance)
   }
+}
+
+/** Same rounded-rect tracing as TextLayer's roundRectPath (radius clamped to half the shorter side). */
+function roundRectPath(
+  ctx: OffscreenCanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const radius = Math.max(0, Math.min(r, w / 2, h / 2))
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
 }
 
 /** Mirrors ShapeLayer.paintShape — same centered rect/circle/triangle geometry. */
@@ -613,7 +699,9 @@ function drawShape(
   const cx = (item.transform?.x ?? 0.5) * stageW
   const cy = (item.transform?.y ?? 0.5) * stageH
   const shortSide = Math.min(stageW, stageH)
-  const half = (item.transform?.scale ?? 0.5) * shortSide * 0.5
+  const baseHalf = (item.transform?.scale ?? 0.5) * shortSide * 0.5
+  const halfW = baseHalf * (item.transform?.scaleX ?? 1)
+  const halfH = baseHalf * (item.transform?.scaleY ?? 1)
 
   ctx.fillStyle = item.shapeFill
   ctx.strokeStyle = item.shapeStroke
@@ -621,19 +709,19 @@ function drawShape(
 
   if (item.shapeKind === 'rect') {
     ctx.beginPath()
-    ctx.rect(cx - half, cy - half, half * 2, half * 2)
+    ctx.rect(cx - halfW, cy - halfH, halfW * 2, halfH * 2)
     ctx.fill()
     if (item.shapeStrokeWidth > 0) ctx.stroke()
   } else if (item.shapeKind === 'circle') {
     ctx.beginPath()
-    ctx.arc(cx, cy, half, 0, Math.PI * 2)
+    ctx.ellipse(cx, cy, halfW, halfH, 0, 0, Math.PI * 2)
     ctx.fill()
     if (item.shapeStrokeWidth > 0) ctx.stroke()
   } else if (item.shapeKind === 'triangle') {
     ctx.beginPath()
-    ctx.moveTo(cx, cy - half)
-    ctx.lineTo(cx + half, cy + half)
-    ctx.lineTo(cx - half, cy + half)
+    ctx.moveTo(cx, cy - halfH)
+    ctx.lineTo(cx + halfW, cy + halfH)
+    ctx.lineTo(cx - halfW, cy + halfH)
     ctx.closePath()
     ctx.fill()
     if (item.shapeStrokeWidth > 0) ctx.stroke()

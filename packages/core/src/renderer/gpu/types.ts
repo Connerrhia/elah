@@ -60,6 +60,24 @@ export interface RendererOptions {
    * Default false.
    */
   probeLayer?: boolean
+  /** Notified when the WebGL context is lost (rendering pauses). */
+  onContextLost?: () => void
+  /** Notified when the WebGL context has been restored (rendering resumes). */
+  onContextRestored?: () => void
+  /**
+   * Notified when the context stayed lost past the recovery watchdog — the
+   * host should remount the renderer and/or surface recovery UI.
+   */
+  onContextUnrecoverable?: () => void
+  /**
+   * Notified when a video clip starts loading (`'loading'`), fails to open
+   * (`'error'`), or becomes drawable (`null`).
+   *
+   * Fires at clip-boundary events only — acquire, first successful upload,
+   * open failure, release — never per frame, so a host can drive a spinner from
+   * it without re-rendering on the render loop.
+   */
+  onClipLoad?: (clipId: string, state: 'loading' | 'error' | null) => void
 }
 
 /**

@@ -8,6 +8,11 @@ import type {
   ActiveShapeClip,
   ActiveFreehandClip,
 } from './scene'
+import {
+  DEFAULT_SHAPE_TRANSFORM,
+  DEFAULT_TEXT_TRANSFORM,
+  sampleTextAnimation,
+} from './textAnimation'
 
 /** Elements tracks always render above every video/audio track. */
 const ELEMENTS_ZINDEX_BASE = 1000000
@@ -28,6 +33,23 @@ function findClipById(
     if (clip) return { clip, trackId }
   }
   return null
+}
+
+/**
+ * Maps a timeline frame to the source-asset frame the clip should show,
+ * honoring `clip.speed` (video clips only in practice — other clip types
+ * never set it, so this is a no-op for them via the `?? 1` default).
+ *
+ * `Math.floor`, not `Math.round`: floor is monotonic in `frame` for any
+ * speed, and — combined with TimelineEngine.setClipSpeed's invariant
+ * `durationFrames * speed <= sourceDurationFrames` — guarantees the last
+ * timeline frame of the clip never maps past the end of its trim window.
+ * `Math.round` can overshoot by one frame at that boundary.
+ */
+function sourceFrameFor(clip: Clip, frame: number): number {
+  const speed = clip.speed ?? 1
+  const localFrame = frame - clip.startFrame
+  return Math.floor(localFrame * speed) + clip.sourceStartFrame
 }
 
 /**
@@ -127,7 +149,7 @@ export function resolveTimeline(frame: number, project: Project): Scene {
       if (frame >= clip.startFrame + clip.durationFrames) continue
 
       // How far into the source asset we are at this frame.
-      const sourceFrame = frame - clip.startFrame + clip.sourceStartFrame
+      const sourceFrame = sourceFrameFor(clip, frame)
       const opacity = clip.opacity ?? 1
       const baseVolume = clip.volume ?? 1
       // Fold track gain into effective volume; mute zeroes both.
@@ -146,6 +168,8 @@ export function resolveTimeline(frame: number, project: Project): Scene {
           volume,
           zIndex,
           ...(clip.transform ? { transform: clip.transform } : {}),
+          ...(clip.cornerRadius ? { cornerRadius: clip.cornerRadius } : {}),
+          ...(clip.crop ? { crop: clip.crop } : {}),
         }
         scene.videos.push(active)
       } else if (clip.type === 'audio' && clip.src) {
@@ -163,20 +187,21 @@ export function resolveTimeline(frame: number, project: Project): Scene {
         }
         scene.audios.push(active)
       } else if (clip.type === 'text') {
-        // Resolve entry/exit animation into opacity so both renderers get the
-        // animated value for free — neither renderer needs to know about animations.
-        let resolvedOpacity = opacity
-        const anim = clip.textAnimation
-        if (anim) {
-          const d = Math.max(1, anim.durationFrames)
-          const localFrame = frame - clip.startFrame
-          if (anim.in === 'fade') {
-            resolvedOpacity = Math.min(resolvedOpacity, Math.min(1, localFrame / d))
-          }
-          if (anim.out === 'fade') {
-            resolvedOpacity = Math.min(resolvedOpacity, Math.min(1, (clip.durationFrames - localFrame) / d))
-          }
-        }
+        // Resolve entry/exit animation into the scene primitives the renderers
+        // already consume — opacity and transform — so neither renderer needs to
+        // know about animations. See resolver/textAnimation.ts.
+        const anim = sampleTextAnimation({
+          animation: clip.textAnimation,
+          localFrame: frame - clip.startFrame,
+          clipDurationFrames: clip.durationFrames,
+          transform: clip.transform,
+          defaultTransform: DEFAULT_TEXT_TRANSFORM,
+        })
+        const resolvedOpacity = Math.min(opacity, anim.opacity)
+        // `transform` absent means the animation is opacity-only: leave the
+        // clip's own value exactly as authored, including leaving it undefined
+        // so the renderer keeps applying its own default (scene.ts:37-38).
+        const resolvedTransform = anim.transform ?? clip.transform
 
         const active: ActiveTextClip = {
           type: 'text',
@@ -187,12 +212,18 @@ export function resolveTimeline(frame: number, project: Project): Scene {
           sourceFrame,
           opacity: resolvedOpacity,
           zIndex,
-          ...(clip.transform ? { transform: clip.transform } : {}),
+          ...(resolvedTransform ? { transform: resolvedTransform } : {}),
           ...(clip.fontSize !== undefined ? { fontSize: clip.fontSize } : {}),
           ...(clip.color !== undefined ? { color: clip.color } : {}),
           ...(clip.fontFamily !== undefined ? { fontFamily: clip.fontFamily } : {}),
           ...(clip.fontWeight !== undefined ? { fontWeight: clip.fontWeight } : {}),
           ...(clip.textAlign !== undefined ? { textAlign: clip.textAlign } : {}),
+          ...(clip.backgroundColor !== undefined ? { backgroundColor: clip.backgroundColor } : {}),
+          ...(clip.backgroundOpacity !== undefined ? { backgroundOpacity: clip.backgroundOpacity } : {}),
+          ...(clip.padding !== undefined ? { padding: clip.padding } : {}),
+          ...(clip.borderRadius !== undefined ? { borderRadius: clip.borderRadius } : {}),
+          ...(clip.borderWidth !== undefined ? { borderWidth: clip.borderWidth } : {}),
+          ...(clip.borderColor !== undefined ? { borderColor: clip.borderColor } : {}),
         }
         scene.texts.push(active)
       } else if (clip.type === 'image' && clip.src) {
@@ -206,21 +237,26 @@ export function resolveTimeline(frame: number, project: Project): Scene {
           opacity,
           zIndex,
           ...(clip.transform ? { transform: clip.transform } : {}),
+          ...(clip.cornerRadius ? { cornerRadius: clip.cornerRadius } : {}),
+          ...(clip.crop ? { crop: clip.crop } : {}),
         }
         scene.images.push(active)
       } else if (clip.type === 'shape' && clip.shapeKind) {
-        let resolvedOpacity = opacity
-        const sanim = clip.shapeAnimation
-        if (sanim) {
-          const d = Math.max(1, sanim.durationFrames)
-          const localFrame = frame - clip.startFrame
-          if (sanim.in === 'fade') {
-            resolvedOpacity = Math.min(resolvedOpacity, Math.min(1, localFrame / d))
-          }
-          if (sanim.out === 'fade') {
-            resolvedOpacity = Math.min(resolvedOpacity, Math.min(1, (clip.durationFrames - localFrame) / d))
-          }
-        }
+        // Shapes share `TextAnimation` with text (types/index.ts:145-148), so
+        // they resolve through the same module. `spin` is the one kind they
+        // cannot express — no shape painter reads `transform.rotation`
+        // (ShapeLayer.ts:166, ExportWorker.drawShape) — so the picker marks it
+        // text-only. A stored `spin` on a shape still resolves here rather than
+        // erroring: it yields the rest transform, i.e. renders as no animation.
+        const sanim = sampleTextAnimation({
+          animation: clip.shapeAnimation,
+          localFrame: frame - clip.startFrame,
+          clipDurationFrames: clip.durationFrames,
+          transform: clip.transform,
+          defaultTransform: DEFAULT_SHAPE_TRANSFORM,
+        })
+        const resolvedOpacity = Math.min(opacity, sanim.opacity)
+        const resolvedTransform = sanim.transform ?? clip.transform
         const active: ActiveShapeClip = {
           type: 'shape',
           id: clip.id,
@@ -233,7 +269,7 @@ export function resolveTimeline(frame: number, project: Project): Scene {
           sourceFrame,
           opacity: resolvedOpacity,
           zIndex,
-          ...(clip.transform ? { transform: clip.transform } : {}),
+          ...(resolvedTransform ? { transform: resolvedTransform } : {}),
         }
         scene.shapes.push(active)
       } else if (clip.type === 'freehand') {
