@@ -120,7 +120,30 @@ export default function ApiPage() {
           <ApiEntry
             name="addTrack"
             signature="engine.addTrack(kind: TrackKind, options?: Partial<CreateTrackOptions>): Track"
-            description="Adds a new track. Video is capped at one lane — adding a video track when one exists returns the existing track (idempotent)."
+            description="Adds a new track. Any number of tracks of any kind is allowed. Video tracks composite in track order (the topmost lane draws on top) and a new video track is placed directly below the last existing one; other kinds append, above any bottom-pinned lane."
+            params={[
+              { name: 'name', type: 'string?', desc: 'Display name; defaults to a kind-based name' },
+              { name: 'height', type: 'number?', desc: 'Lane height in px (default 64)' },
+              { name: 'order', type: 'number?', desc: 'Explicit render order; normally left to the engine' },
+              { name: 'protected', type: 'boolean?', desc: 'When true, the user cannot remove the track' },
+              { name: 'pinned', type: "'bottom'?", desc: 'Keeps the lane below every non-pinned track, whatever is added later' },
+            ]}
+          />
+
+          <ApiEntry
+            name="loadProject"
+            signature="engine.loadProject(project: Project, options?: { transport?: 'rewind' | 'keep'; history?: 'reset' | 'keep' }): void"
+            description="Replaces the whole composition. Pass the result of readProjectDocument(json), which throws ProjectDocumentError for an unreadable or too-new document. By default undo history is cleared and the playhead rewinds; { transport: 'keep', history: 'keep' } is for the relinkProjectMedia repair pass over a composition that is already on screen. Emits 'change' then 'project:loaded'."
+            params={[
+              { name: 'transport', type: "'rewind' | 'keep'", desc: "'rewind' (default) stops and returns to frame 0; 'keep' leaves the playhead alone" },
+              { name: 'history', type: "'reset' | 'keep'", desc: "'reset' (default) clears undo/redo; 'keep' preserves the stacks and any open batch or drag" },
+            ]}
+          />
+
+          <ApiEntry
+            name="setClipSpeed"
+            signature="engine.setClipSpeed(clipId: string, trackId: string, speed: number): void"
+            description="Sets a video clip's playback multiplier, clamped to 0.25–4. The clip's on-timeline length follows the new speed; growth is clamped to the gap before the next clip."
           />
 
           <ApiEntry
@@ -301,6 +324,16 @@ renderer.dispose()               // cleanup on unmount`}
                 desc: 'Zustand store for all transitions.',
               },
               {
+                hook: 'useTextStylePresetsStore(selector)',
+                returns: 'T',
+                desc: 'Zustand store for reusable text looks: the built-in presets plus any the user saves.',
+              },
+              {
+                hook: 'useClipLoadStore(selector)',
+                returns: 'T',
+                desc: "Zustand store of which clips the preview cannot draw yet: byClipId[id] is 'loading' or 'error'. Renderer state only; never saved or undoable.",
+              },
+              {
                 hook: 'useMediaLibrary()',
                 returns: 'UseMediaLibraryApi',
                 desc: 'Access the media library. Returns { assets, getAsset, removeAsset, updateAsset, importFiles, importUrl, importBlob }.',
@@ -369,6 +402,8 @@ interface Track {
   muted: boolean
   solo: boolean
   volume?: number         // 0..2, linear
+  protected?: boolean     // the user cannot remove this track
+  pinned?: 'bottom'       // addTrack keeps this lane below every non-pinned track
 }
 
 interface Clip {
@@ -385,6 +420,9 @@ interface Clip {
   transform?: Transform
   opacity?: number              // 0..1
   volume?: number               // 0..1
+  speed?: number                // video only; 0.25..4, default 1
+  cornerRadius?: number         // video/image; 0..0.5 of the shorter side
+  crop?: { x: number; y: number; width: number; height: number } // 0..1 of the source
   locked?: boolean
   disabled?: boolean
   // Text clips (flat fields, not a nested object):
@@ -395,6 +433,7 @@ interface Clip {
   fontWeight?: 'normal' | 'bold'
   textAlign?: 'left' | 'center' | 'right'
   textAnimation?: TextAnimation
+  shapeAnimation?: TextAnimation
   // Shape / freehand clips have their own shape*/stroke*/pathData fields.
 }
 
@@ -407,10 +446,27 @@ interface Transform {
 }
 
 // Entry/exit ramp for text (and shape) clips.
+type TextAnimationKind = 'fade' | 'spin' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right'
+
 interface TextAnimation {
-  in?: 'fade'
-  out?: 'fade'
+  in?: TextAnimationKind
+  out?: TextAnimationKind
   durationFrames: number
+  // Layered motion. When present it replaces in / out; used by text templates.
+  inMotion?: MotionSpec
+  outMotion?: MotionSpec
+}
+
+// One end of a layered animation: the state at the FAR end of the ramp.
+// The near end is always the clip's resting state. Omitted channels stay at rest.
+interface MotionSpec {
+  opacity?: number       // 0..1
+  offsetX?: number       // fraction of stage width
+  offsetY?: number       // fraction of stage height
+  scale?: number         // multiplier on the authored scale
+  rotation?: number      // radians
+  ease?: TextAnimationEasing        // geometry channels
+  opacityEase?: TextAnimationEasing // default 'linear'
 }
 
 interface Transition {
@@ -435,7 +491,9 @@ interface ExportOptions {
   audioCodec?: ExportAudioCodec
   videoBitrate?: number           // bits/s, default 8 Mbps
   audioBitrate?: number           // bits/s, default 128 kbps
-  outputHeight?: number           // scale output; default = stage height
+  outputHeight?: number           // target SHORT edge in px (1080 = 1080p in either
+                                  // orientation); other edge is rounded to even.
+                                  // Default = the stage's own short edge
   onProgress?: (p: ExportProgress) => void
   signal?: AbortSignal
 }

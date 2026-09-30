@@ -7,8 +7,8 @@
  * frames depict is the caller's business.
  *
  * Pure and React-free (ARCHITECTURE P1). The controller that drives one lives
- * in ./FrameSequenceController; the React viewer lives in
- * @elah-premium/frame-sequence.
+ * in ./FrameSequenceController. There is no viewer in this repo: a host app
+ * renders the frames itself, or turns them into a project with frameSequenceToProject.
  */
 
 import { generateId } from '../utils/id'

@@ -141,7 +141,9 @@ const { selectedClipIds } = useSelection(s => s)
 Attach media drop handlers to any track lane element. `useTimelineDrop(trackId, lane)`
 takes the track id and the lane DOM node positionally, and reads the engine from
 the `EditorContext` (so it must run inside the provider). It wires the handlers as
-a side-effect and returns nothing:
+a side-effect and returns the lane's drag-over state, `TimelineDropState`:
+`'valid'` (compatible drag hovering), `'invalid'` (incompatible kind or locked track)
+or `null` (no drag), for highlighting the drop target:
 
 ```tsx
 import { useRef } from 'react'
@@ -149,12 +151,42 @@ import { useTimelineDrop } from '@elah/timeline'
 
 function Lane({ trackId }: { trackId: string }) {
   const laneRef = useRef<HTMLDivElement>(null)
-  useTimelineDrop(trackId, laneRef.current)
-  return <div ref={laneRef} />
+  const dropState = useTimelineDrop(trackId, laneRef.current)
+  return <div ref={laneRef} data-drop={dropState ?? undefined} />
 }
 ```
 
 Dragging a media asset from the library onto the lane resolves drop position to `startFrame` (respects zoom and snap).
+
+### Inserting before the media is probed
+
+`insertMediaAsset` and `insertElement` place clips without dragging. For a remote asset
+started with core's `beginImportUrl` (which returns a pending asset immediately), insert
+the clip with a fallback length, then call `growClipToAssetDuration` once the real
+duration is known. It is the companion of `beginImportUrl` for hosts that insert a clip
+before its media has been probed:
+
+```ts
+import { growClipToAssetDuration } from '@elah/timeline'
+
+// growClipToAssetDuration(engine, clipId, expectedFallbackFrames, newDurationSec)
+growClipToAssetDuration(engine, clipId, fallbackFrames, durationSec)
+```
+
+It only grows into the gap before the next clip (never creating an overlap) and leaves a
+clip alone if the user already trimmed it away from the fallback length.
+
+---
+
+## Zoom and multiple video tracks
+
+The `Timeline` ref exposes `{ engine, playback, fitToWindow, zoomAtAnchor }`.
+`zoomAtAnchor(nextZoom)` zooms anchored on the playhead when it is in view, else on the
+viewport centre, so a toolbar zoom button or slider never scrolls the playhead away. Use it
+instead of a raw `setZoom`.
+
+The timeline renders any number of video tracks; the topmost lane composites on top. Only
+clips inside the scrolled viewport (plus a margin) are mounted, so long timelines stay cheap.
 
 ---
 

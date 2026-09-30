@@ -8,9 +8,9 @@ import {
   type EditorPanelStore,
 } from './panelCollapse'
 
-const SIDES: EditorPanelId[] = ['left', 'right', 'composer']
+const SIDES: EditorPanelId[] = ['left', 'right']
 
-/** An in-memory `Storage` slice, the same fixture shape `sidebarCollapse.test.ts` uses. */
+/** An in-memory `Storage` slice. */
 function memoryStore(initial: Record<string, string> = {}): EditorPanelStore & { data: Record<string, string> } {
   const data = { ...initial }
   return {
@@ -56,7 +56,6 @@ describe('readEditorPanelCollapsed', () => {
     const store = memoryStore({ [EDITOR_PANEL_COLLAPSED_KEYS.left]: '1' })
     expect(readEditorPanelCollapsed('left', store)).toBe(true)
     expect(readEditorPanelCollapsed('right', store)).toBe(false)
-    expect(readEditorPanelCollapsed('composer', store)).toBe(false)
   })
 
   // Only the exact marker collapses: a corrupt or half-written value should
@@ -110,7 +109,5 @@ describe('the toggle label', () => {
     expect(editorPanelToggleLabel('left', false)).toBe('Collapse AI workspace')
     expect(editorPanelToggleLabel('right', true)).toBe('Expand properties')
     expect(editorPanelToggleLabel('right', false)).toBe('Collapse properties')
-    expect(editorPanelToggleLabel('composer', true)).toBe('Expand composer')
-    expect(editorPanelToggleLabel('composer', false)).toBe('Collapse composer')
   })
 })

@@ -476,7 +476,7 @@ export function AssetPanel({
               color: toast.tone === 'warn' ? 'var(--elah-danger-text, #f5d0a9)' : 'var(--elah-info-text, #c8d8f0)',
               background: toast.tone === 'warn' ? 'var(--elah-danger-bg, #3a2418)' : 'var(--elah-info-bg, #1a2433)',
               border: `1px solid ${toast.tone === 'warn' ? 'var(--elah-danger-border, #7a4a2a)' : 'var(--elah-info-border, #355070)'}`,
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)',
+              boxShadow: 'var(--elah-toast-shadow, 0 4px 12px rgba(0, 0, 0, 0.35))',
             }}
           >
             {toast.message}

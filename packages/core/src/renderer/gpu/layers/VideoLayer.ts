@@ -134,7 +134,11 @@ const DEFAULT_MAX_IDLE_PROVIDERS = 4
  */
 const IDLE_REARM_AFTER_FRACTION = 0.5
 
-/** Tuning knobs for provider retention. Injectable so tests can drive them. */
+/**
+ * What a clip's media is doing while it has nothing drawable on screen.
+ * Mirrors `ClipLoadState` in the clip-load store without importing it — this
+ * layer has no business knowing a store exists.
+ */
 export type VideoClipLoadState = 'loading' | 'error'
 
 /** Tuning knobs for provider retention. Injectable so tests can drive them. */
@@ -236,6 +240,12 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
   private _holdoverTexture: VideoTexture | null = null
   /** Timeline frame at which the holdover's clip last drew. -Infinity = unknown/stale. */
   private _holdoverFrame = Number.NEGATIVE_INFINITY
+  /**
+   * Content dimensions of the frame held in _holdoverTexture. Without these, a
+   * clip drawn from the holdover (its own contentSize entry is gone — release()
+   * deleted it) would fall back to fill-the-stage and stretch the frame.
+   */
+  private _holdoverContentSize: { width: number; height: number } | null = null
   /** Timeline frame at which each active clip last drew — stamps the holdover on release. */
   private readonly _lastDrawFrameByItemId = new Map<string, number>()
 
@@ -323,7 +333,9 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
   private _ensureProvider(item: ActiveVideoClip, ctx: LayerContext): ProviderEntry {
     let entry = this._providers.get(item.id)
     const currentSrc = this._providerSrcByItemId.get(item.id)
+    let carriedRefCount = 0
     if (entry && currentSrc !== item.src) {
+      carriedRefCount = entry.refCount
       this._cancelIdleEviction(item.id)
       entry.provider.dispose()
       this._providers.delete(item.id)
@@ -339,9 +351,17 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
       const provider = this._deps
         ? createVideoFrameProvider(item.src, { ...this._deps, fps: ctx.fps })
         : this._providerFactory(item.src)
-      entry = { provider, refCount: 0 }
+      // A replaced provider inherits the ref count of the one it replaces: the
+      // clip is still being drawn, so a refCount of 0 here would expose a live
+      // provider to the idle-eviction pass and to prewarm's seek.
+      entry = { provider, refCount: carriedRefCount }
       this._providers.set(item.id, entry)
       this._providerSrcByItemId.set(item.id, item.src)
+      if (carriedRefCount > 0) {
+        provider.markActive()
+        this._reportLoad(item.id, 'loading')
+        this._watchOpenFailure(item.id, entry)
+      }
     }
 
     return entry
@@ -365,6 +385,7 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
       this._holdoverTexture = texture
       this._holdoverFrame =
         this._lastDrawFrameByItemId.get(itemId) ?? Number.NEGATIVE_INFINITY
+      this._holdoverContentSize = this._contentSizeByItemId.get(itemId) ?? null
     } else {
       texture?.dispose()
     }
@@ -449,17 +470,24 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
   draw(item: ActiveVideoClip, ctx: LayerContext): void {
     this._gl = ctx.gl
 
-    let texture = this._textures.get(item.id)
+    // Ensure the provider BEFORE reading the texture: a src change disposes and
+    // unmaps the old texture inside _ensureProvider, and a local read taken
+    // earlier would still be truthy and keep uploading into the disposed one.
     let entry = this._providers.get(item.id)
     const currentSrc = this._providerSrcByItemId.get(item.id)
-    if (!entry || currentSrc !== item.src) {
-      entry = this._ensureProvider(item, ctx)
-      if (!texture) {
-        texture = new VideoTexture(this._pool)
-        this._textures.set(item.id, texture)
-      }
+    const providerReplaced = !entry || currentSrc !== item.src
+    if (providerReplaced) entry = this._ensureProvider(item, ctx)
+    // Normally acquire() has already made the texture and only a src change
+    // (which unmaps it just above) leaves us without one. Re-creating whenever
+    // it is missing rather than only on that path costs nothing and keeps a
+    // future code path that drops a texture from turning into a clip that
+    // silently stops painting.
+    let texture = this._textures.get(item.id)
+    if (!texture) {
+      texture = new VideoTexture(this._pool)
+      this._textures.set(item.id, texture)
     }
-    if (!texture || !entry) return
+    if (!entry) return
 
     this._lastDrawFrameByItemId.set(item.id, ctx.frame)
 
@@ -486,6 +514,7 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
         // First real frame for this clip — holdover is no longer needed.
         this._holdoverTexture?.dispose()
         this._holdoverTexture = null
+        this._holdoverContentSize = null
       }
     }
     // On cache miss: setPlayhead() already triggered decode for this frame.
@@ -493,7 +522,7 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
 
     if (!this._program || !this._vao) return
 
-    const contentSize = this._contentSizeByItemId.get(item.id)
+    let contentSize = this._contentSizeByItemId.get(item.id)
     const opacity = item.opacity ?? 1
 
     this._program.use(ctx.gl)
@@ -509,9 +538,13 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
     if (unit < 0 && this._holdoverTexture !== null) {
       if (Math.abs(ctx.frame - this._holdoverFrame) <= HOLDOVER_MAX_FRAME_GAP) {
         unit = this._holdoverTexture.bind(ctx.gl, 0)
+        // Fit the borrowed frame by ITS dimensions, not the incoming clip's
+        // (still unknown) ones — otherwise it stretches to the stage.
+        contentSize ??= this._holdoverContentSize ?? undefined
       } else {
         this._holdoverTexture.dispose()
         this._holdoverTexture = null
+        this._holdoverContentSize = null
       }
     }
     if (unit < 0) return
@@ -559,6 +592,7 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
     this._holdoverTexture?.dispose()
     this._holdoverTexture = null
     this._holdoverFrame = Number.NEGATIVE_INFINITY
+    this._holdoverContentSize = null
 
     // Cancel first: the timers hold a reference to `this` and would otherwise
     // wake up after teardown to evict from maps that are already empty.
@@ -567,11 +601,13 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
     }
     this._idleEvictionTimers.clear()
 
-    for (const entry of this._providers.values()) {
+    for (const [itemId, entry] of this._providers) {
       entry.provider.dispose()
+      this._reportLoad(itemId, null)
     }
     this._providers.clear()
     this._prewarmedItemIds.clear()
+    this._openWatchedItemIds.clear()
 
     if (this._gl) {
       if (this._vao) this._gl.deleteVertexArray(this._vao)
@@ -591,6 +627,7 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
     // Holdover GL handle is also invalid after context loss.
     this._holdoverTexture?.handleContextLost()
     this._holdoverTexture = null
+    this._holdoverContentSize = null
     this._program = null
     this._vao = null
     this._gl = null
@@ -781,5 +818,9 @@ export class VideoLayer implements Layer<ActiveVideoClip> {
     this._srcByItemId.delete(itemId)
     this._providerSrcByItemId.delete(itemId)
     this._prewarmedItemIds.delete(itemId)
+    this._openWatchedItemIds.delete(itemId)
+    // Defensive: release() normally clears this first, but a provider disposed
+    // straight out of prewarm never went through release at all.
+    this._reportLoad(itemId, null)
   }
 }

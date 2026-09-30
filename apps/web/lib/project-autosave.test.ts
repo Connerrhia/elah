@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AutosaveScheduler, AutosaveStatus } from './project-autosave'
-import { ApiError } from './api'
 import {
   AUTOSAVE_DEBOUNCE_MS,
-  autosaveLabel,
+  AutosaveConflictError,
   createAutosave,
-  isAutosaveProblem,
   isVersionConflict,
 } from './project-autosave'
 
@@ -158,7 +156,7 @@ describe('createAutosave — one write at a time', () => {
 })
 
 describe('createAutosave — conflict', () => {
-  const conflict = () => Promise.reject(new ApiError(409, 'saved elsewhere'))
+  const conflict = () => Promise.reject(new AutosaveConflictError('saved elsewhere'))
 
   it('suspends saving on a 409 rather than retrying a version that can only lose', async () => {
     const save = vi.fn().mockImplementation(conflict)
@@ -325,8 +323,8 @@ describe('createAutosave — failure and teardown', () => {
     expect(save).toHaveBeenLastCalledWith({ n: 1 }, 3)
   })
 
-  it('treats a non-409 ApiError as a retryable failure, not a conflict', async () => {
-    const save = vi.fn().mockRejectedValue(new ApiError(500, 'boom'))
+  it('treats a non-conflict error as a retryable failure, not a conflict', async () => {
+    const save = vi.fn().mockRejectedValue(new Error('boom'))
     const { autosave, clock, kinds } = harness(save)
     autosave.schedule({ n: 1 })
     clock.fire()
@@ -388,60 +386,10 @@ describe('createAutosave — failure and teardown', () => {
 })
 
 describe('isVersionConflict', () => {
-  it('is true only for a 409 from the api layer', () => {
-    expect(isVersionConflict(new ApiError(409, 'stale'))).toBe(true)
-    expect(isVersionConflict(new ApiError(404, 'gone'))).toBe(false)
+  it('is true only for an AutosaveConflictError', () => {
+    expect(isVersionConflict(new AutosaveConflictError('stale'))).toBe(true)
+    expect(isVersionConflict(new Error('gone'))).toBe(false)
     expect(isVersionConflict(new Error('409'))).toBe(false)
     expect(isVersionConflict(null)).toBe(false)
-  })
-})
-
-describe('autosaveLabel', () => {
-  const NOW = Date.parse('2026-07-30T12:00:00.000Z')
-
-  it('says something in every state — a blank indicator is the one thing it must not be', () => {
-    const states: AutosaveStatus[] = [
-      { kind: 'idle' },
-      { kind: 'dirty' },
-      { kind: 'saving' },
-      { kind: 'saved', at: NOW },
-      { kind: 'conflict' },
-      { kind: 'blocked' },
-      { kind: 'error', message: 'boom' },
-    ]
-    for (const state of states) {
-      expect(autosaveLabel(state, NOW).length).toBeGreaterThan(0)
-    }
-  })
-
-  it('only claims "Saved" once a save has returned', () => {
-    expect(autosaveLabel({ kind: 'saving' }, NOW)).toBe('Saving…')
-    expect(autosaveLabel({ kind: 'dirty' }, NOW)).toBe('Unsaved changes')
-    expect(autosaveLabel({ kind: 'conflict' }, NOW)).not.toMatch(/^Saved/)
-  })
-
-  it('ages the saved timestamp the way the project cards do', () => {
-    expect(autosaveLabel({ kind: 'saved', at: NOW }, NOW)).toBe('Saved just now')
-    expect(autosaveLabel({ kind: 'saved', at: NOW - 2 * 60_000 }, NOW)).toBe('Saved 2m ago')
-    expect(autosaveLabel({ kind: 'saved', at: NOW - 3 * 3_600_000 }, NOW)).toBe('Saved 3h ago')
-  })
-
-  it('keeps engineering vocabulary out of the indicator', () => {
-    expect(autosaveLabel({ kind: 'conflict' }, NOW)).not.toMatch(/version|409|document/i)
-    expect(autosaveLabel({ kind: 'blocked' }, NOW)).not.toMatch(/version|409|document|parse|JSON/i)
-  })
-
-  it('never claims a gated project is saved — nothing is being written at all', () => {
-    expect(autosaveLabel({ kind: 'blocked' }, NOW)).not.toMatch(/^Saved|All changes saved/)
-  })
-})
-
-describe('isAutosaveProblem', () => {
-  it('separates the states that need the user from the ones that do not', () => {
-    expect(isAutosaveProblem({ kind: 'conflict' })).toBe(true)
-    expect(isAutosaveProblem({ kind: 'blocked' })).toBe(true)
-    expect(isAutosaveProblem({ kind: 'error', message: 'x' })).toBe(true)
-    expect(isAutosaveProblem({ kind: 'saving' })).toBe(false)
-    expect(isAutosaveProblem({ kind: 'saved', at: 1 })).toBe(false)
   })
 })

@@ -44,8 +44,9 @@
  * Two fields here describe something a single clip cannot express: breaking one
  * line of copy into several clips that enter one after another (`stagger`), and
  * faking letterspacing by respacing the characters (`tracking`). Both are read
- * by the caller that builds a timeline from a template — `lib/motion/overlay.ts`
- * in the web app — and both are IGNORED by `applyTextTemplate`, which patches
+ * by the host app that builds a timeline from a template — nothing in this repo
+ * does; a host that wants either must implement it. Both are IGNORED by
+ * `applyTextTemplate`, which patches
  * exactly one clip and stays a pure restyle.
  *
  * That split is deliberate. Executing a stagger means knowing the stage height,

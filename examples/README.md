@@ -18,7 +18,7 @@ cd examples/react   && npm install && npm run dev
 cd examples/next    && npm install && npm run dev
 ```
 
-They track the latest published SDK — currently **`@elah/editor@^0.4.1`**.
+They track the latest published SDK — currently **`@elah/editor@^0.6.0`**.
 
 > **Verified against `@elah/editor@0.4.1` on 2026-08-02** — clean `npm install` from the
 > registry, then `typecheck`, `dev`, and `build` for all three, plus a full MP4 export in

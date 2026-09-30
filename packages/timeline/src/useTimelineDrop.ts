@@ -66,20 +66,9 @@ export type TimelineDropState = 'valid' | 'invalid' | null
 export function useTimelineDrop(
   trackId: string,
   lane: HTMLElement | null,
-  options?: {
-    /**
-     * Track never accepts drops (e.g. an AI-managed lane) — every drag over
-     * it reads as `'invalid'` (red highlight) and any drop is swallowed
-     * without inserting anything. `preventDefault` still runs on dragover so
-     * the browser's native "no-drop" cursor never appears; the red lane
-     * highlight is the only feedback the user sees.
-     */
-    blockDrop?: boolean
-  },
 ): TimelineDropState {
   const engine = useTimeline()
   const [dropState, setDropState] = useState<TimelineDropState>(null)
-  const blockDrop = options?.blockDrop ?? false
 
   useEffect(() => {
     if (!lane) return
@@ -112,13 +101,6 @@ export function useTimelineDrop(
 
     const handleDragOver = (e: DragEvent) => {
       if (!acceptsDrag(e)) return
-      if (blockDrop) {
-        // Claim the drag so the browser doesn't render its own no-drop
-        // cursor — the red lane highlight (set on dragenter) is the feedback.
-        e.preventDefault()
-        e.dataTransfer!.dropEffect = 'copy'
-        return
-      }
       const track = useTracksStore.getState().tracks.find((t) => t.id === trackId)
       if (!track || !isDropAllowed(e, track)) {
         // Not a legal drop here (locked track or incompatible kind) — show the
@@ -134,10 +116,6 @@ export function useTimelineDrop(
     const handleDragEnter = (e: DragEvent) => {
       if (!acceptsDrag(e)) return
       dragDepth += 1
-      if (blockDrop) {
-        setDropState('invalid')
-        return
-      }
       const track = useTracksStore.getState().tracks.find((t) => t.id === trackId)
       setDropState(track && isDropAllowed(e, track) ? 'valid' : 'invalid')
     }
@@ -193,9 +171,6 @@ export function useTimelineDrop(
       }
       e.preventDefault()
       resetDragState()
-      if (blockDrop) {
-        return
-      }
 
       const track = useTracksStore
         .getState()
@@ -228,7 +203,7 @@ export function useTimelineDrop(
       lane.removeEventListener('drop', handleDrop)
       resetDragState()
     }
-  }, [trackId, lane, engine, blockDrop])
+  }, [trackId, lane, engine])
 
   return dropState
 }

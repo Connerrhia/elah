@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { InView } from './motion/InView'
 
 export type CardHeaderKind = 'editor' | 'timeline' | 'headless' | 'core' | 'demo'
 
@@ -16,7 +17,7 @@ const headerBase: CSSProperties = {
   position: 'relative',
 }
 
-export function CardHeader({ kind, playheadPct = '48%', delay = '-3s' }: CardHeaderProps) {
+function CardHeaderBody({ kind, playheadPct = '48%', delay = '-3s' }: CardHeaderProps) {
   if (kind === 'editor') {
     return (
       <div style={{ ...headerBase, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -197,5 +198,14 @@ export function CardHeader({ kind, playheadPct = '48%', delay = '-3s' }: CardHea
         </span>
       ))}
     </div>
+  )
+}
+
+/** Wraps the body so its infinite loops pause while the card is off screen. */
+export function CardHeader(props: CardHeaderProps) {
+  return (
+    <InView>
+      <CardHeaderBody {...props} />
+    </InView>
   )
 }

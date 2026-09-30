@@ -2,7 +2,6 @@
 
 import posthog from 'posthog-js'
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Type as TypeIcon,
@@ -23,7 +22,6 @@ import {
   SlidersHorizontal,
   Sparkles,
   X,
-  ArrowLeft,
   GripVertical,
   GripHorizontal,
   PanelLeftClose,
@@ -40,15 +38,8 @@ import { BackButton } from '../shared/BackButton'
 import { MediaPanel, type PanelMode } from './MediaPanel'
 import { AgenticPanel } from './AgenticPanel'
 import { TracePanel } from './TracePanel'
-import { ProjectDocumentBridge, type EditorProjectChrome } from './ProjectDocumentBridge'
-import { StoryboardComposeBridge } from './StoryboardComposeBridge'
 import { LocalProjectBridge } from './LocalProjectBridge'
-import {
-  ProjectConflictDialog,
-  ProjectMediaNotice,
-  ProjectSaveIndicator,
-  ProjectUnreadableDialog,
-} from './ProjectSaveChrome'
+import { ProjectMediaNotice } from './ProjectSaveChrome'
 import {
   editorPanelToggleLabel,
   readEditorPanelCollapsed,
@@ -205,12 +196,10 @@ const AppHeader = memo(function AppHeader({
   onExport,
   onToggleCode,
   codeOpen,
-  project,
 }: {
   onExport: () => void
   onToggleCode: () => void
   codeOpen: boolean
-  project?: EditorProjectChrome
 }) {
   const [showTrace, setShowTrace] = useState(false)
   const [showOverflow, setShowOverflow] = useState(false)
@@ -223,50 +212,27 @@ const AppHeader = memo(function AppHeader({
 
   return (
     <header className="elah-app-header grid grid-cols-[1fr_auto_1fr] items-center px-4 h-[46px] bg-ed-bg-2 border-b border-ed-border shrink-0">
-      {/* Left — project chrome, or folded playground nav + brand + demo CTA */}
+      {/* Left — folded playground nav + brand + demo CTA */}
       <div className="flex items-center gap-3">
-        {project ? (
+        {!isStandalone && <BackButton />}
+        {!isMobile && (
           <>
-            <Link
-              href={`/projects/${project.id}`}
-              className="inline-flex items-center gap-1.5 shrink-0 px-2 py-1 -ml-2 rounded text-[13px] font-medium text-ed-text-muted hover:bg-ed-elevated hover:text-ed-text transition-colors"
-            >
-              <ArrowLeft size={15} aria-hidden />
-              {!isMobile && 'Back to project'}
-            </Link>
-            {!isMobile && (
-              <>
-                <div className="w-px h-4 bg-ed-border shrink-0" />
-                <span className="truncate text-[14px] font-medium text-ed-text" title={project.name}>
-                  {project.name}
-                </span>
-              </>
-            )}
-            <ProjectSaveIndicator />
-          </>
-        ) : (
-          <>
-            {!isStandalone && <BackButton />}
-            {!isMobile && (
-              <>
-                {!isStandalone && <div className="w-px h-4 bg-ed-border shrink-0" />}
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    className="w-[7px] h-[7px] rounded-full shrink-0"
-                    style={{
-                      background: 'var(--elah-accent)',
-                      boxShadow: '0 0 8px var(--elah-accent-glow)',
-                    }}
-                  />
-                  <span className="text-[13px] font-bold text-ed-text tracking-[-0.02em]">
-                    elah
-                  </span>
-                  <span className="text-[11px] font-mono text-ed-text-muted">
-                    @elah/editor
-                  </span>
-                </span>
-              </>
-            )}
+            {!isStandalone && <div className="w-px h-4 bg-ed-border shrink-0" />}
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="w-[7px] h-[7px] rounded-full shrink-0"
+                style={{
+                  background: 'var(--elah-accent)',
+                  boxShadow: '0 0 8px var(--elah-accent-glow)',
+                }}
+              />
+              <span className="text-[13px] font-bold text-ed-text tracking-[-0.02em]">
+                elah
+              </span>
+              <span className="text-[11px] font-mono text-ed-text-muted">
+                @elah/editor
+              </span>
+            </span>
           </>
         )}
       </div>
@@ -729,7 +695,7 @@ const TransportBar = memo(function TransportBar() {
   )
 })
 
-export default function ProductionEditor({ project }: { project?: EditorProjectChrome }) {
+export default function ProductionEditor() {
   const timelineRef = useRef<TimelineRef>(null)
   const demuxerFactoryRef = useRef(createDefaultDemuxerFactory())
 
@@ -915,15 +881,9 @@ export default function ProductionEditor({ project }: { project?: EditorProjectC
           }}
           onToggleCode={() => setShowCode((o) => !o)}
           codeOpen={showCode}
-          project={project}
         />
-        {project ? <ProjectDocumentBridge project={project} /> : <LocalProjectBridge />}
-        {project && (
-          <StoryboardComposeBridge projectId={project.id} timelineRef={timelineRef} />
-        )}
+        <LocalProjectBridge />
         <ProjectMediaNotice />
-        {project && <ProjectConflictDialog />}
-        {project && <ProjectUnreadableDialog />}
         {showExportModal && (
           <ExportModal
             isMobile={isMobile}

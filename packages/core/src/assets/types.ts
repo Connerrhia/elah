@@ -9,10 +9,10 @@ export interface MediaAssetTopObject {
 
 /**
  * AI-generated understanding of a video's content (tags, summary, detected
- * objects), copied verbatim from the gallery item's `catalog` at the moment
- * an asset is imported from the gallery. Structurally mirrors the backend's
- * `GalleryItemCatalog` (see `apps/web/lib/gallery-types.ts`) — kept as a
- * local shape here so `@elah-premium/core` has no dependency on `apps/web`.
+ * objects), attached to an asset by the host app when it imports one from its
+ * own gallery or catalogue. The engine never produces or interprets it: this
+ * is a plain data shape the host fills in and reads back, so `@elah/core`
+ * stays independent of any backend or app-level gallery type.
  */
 export interface MediaAssetAnalysis {
   tags: string[]

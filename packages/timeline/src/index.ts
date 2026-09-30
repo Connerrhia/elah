@@ -26,11 +26,6 @@ export type {
   InsertedKind,
 } from './insertAsset'
 
-// --- AI-tools dialog (opened from the Sparkles button on a track label) ---
-export { useAiTrackDialogStore } from './aiTrackDialog.store'
-export type { AiTrackDialogStatus } from './aiTrackDialog.store'
-export { GenerationProgressBar } from './GenerationProgressBar'
-
 // --- Element drag infrastructure (public API) ---
 export { ELEMENT_DRAG_MIME } from './elementDrag'
 export type { DragElementPayload, ElementKind, ShapeVariant } from './elementDrag'

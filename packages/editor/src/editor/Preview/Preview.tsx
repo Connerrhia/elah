@@ -361,7 +361,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
           trying to restore); 'failed' needs a manual remount. */}
       {glState !== 'ok' && (
         <div
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 text-white text-sm"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[var(--elah-overlay-scrim,rgba(0,0,0,0.7))] text-[color:var(--elah-overlay-text,#ffffff)] text-sm"
           data-testid="preview-gl-recovery"
         >
           {glState === 'lost' ? (
@@ -371,7 +371,7 @@ export const Preview = forwardRef<PreviewHandle, PreviewProps>(function Preview(
               <span>The preview stopped rendering (graphics context lost).</span>
               <button
                 type="button"
-                className="rounded-md border border-white/30 bg-white/10 px-3 py-1.5 hover:bg-white/20"
+                className="rounded-md border border-[color:var(--elah-overlay-border,rgba(255,255,255,0.3))] bg-[var(--elah-overlay-bg,rgba(255,255,255,0.1))] px-3 py-1.5 hover:bg-[var(--elah-overlay-bg-hover,rgba(255,255,255,0.2))]"
                 onClick={() => {
                   setGlState('ok')
                   setReloadKey((k) => k + 1)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import posthog from 'posthog-js'
 import { Icon } from './Icon'
@@ -9,6 +10,9 @@ import { CardHeader } from './CardHeader'
 import { EditorMockup } from './EditorMockup'
 import { DISCORD_URL, EDITOR_URL, GET_STARTED_URL, GITHUB_URL, libraries } from './landingData'
 import { trackEvent, trackPlaygroundLaunch } from '@/lib/analytics'
+import { Spotlight } from './motion/Spotlight'
+import type { MotionChildren } from './motion/types'
+import { useInView } from './motion/useInView'
 
 const riseBase = 'lv-rise .8s cubic-bezier(.2,.7,.2,1)'
 
@@ -24,6 +28,38 @@ const outlineBtn = {
   transition: 'border-color .18s, transform .18s, box-shadow .18s, background .18s',
 } as const
 
+const gradientText = {
+  background: 'linear-gradient(100deg, var(--accent), #4d8dff 80%)',
+  WebkitBackgroundClip: 'text',
+  backgroundClip: 'text',
+  color: 'transparent',
+} as const
+
+/** One headline word, rising in on mount ~40ms after the previous one. */
+function Word({ i, gradient, reduce, children }: { i: number; gradient?: boolean; reduce: boolean | null; children: MotionChildren }) {
+  const inner = gradient ? (
+    <span className="lv-grad-text" style={gradientText}>
+      {children}
+    </span>
+  ) : (
+    children
+  )
+  if (reduce) return <span style={{ display: 'inline-block' }}>{inner}</span>
+  // A CSS keyframe rather than a motion value, unlike every other reveal on this
+  // page. The headline is the one element whose entrance must not be able to
+  // fail: framer writes the "before" state (opacity 0) into the markup and only
+  // clears it once its frame loop runs, so anything that stops that loop —
+  // hydration not finishing, the tab never being looked at — leaves the page's
+  // main heading invisible. A CSS animation needs no JS and no React, and
+  // `lv-rise` is only defined under `prefers-reduced-motion: no-preference`, so
+  // reduced-motion users get the resting style with nothing to strip.
+  return (
+    <span style={{ display: 'inline-block', animation: `${riseBase} ${(0.06 + i * 0.04).toFixed(2)}s both` }}>
+      {inner}
+    </span>
+  )
+}
+
 interface CommandLineProps {
   command: string
   copied: boolean
@@ -31,6 +67,7 @@ interface CommandLineProps {
 }
 
 function CommandLine({ command, copied, onCopy }: CommandLineProps) {
+  const reduce = useReducedMotion()
   return (
     <div
       className="lv-copy"
@@ -64,12 +101,15 @@ function CommandLine({ command, copied, onCopy }: CommandLineProps) {
       >
         <span style={{ color: 'var(--accent)' }}>$</span>
         <span style={{ whiteSpace: 'nowrap' }}>{command}</span>
-        <Icon
-          name={copied ? 'check' : 'content_copy'}
-          size={16}
-          color="var(--faint)"
-          style={{ flexShrink: 0, marginLeft: 'auto' }}
-        />
+        <motion.span
+          key={copied ? 'done' : 'idle'}
+          initial={copied && !reduce ? { scale: 0.3, rotate: -40 } : false}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', stiffness: 520, damping: 14 }}
+          style={{ display: 'inline-flex', flexShrink: 0, marginLeft: 'auto' }}
+        >
+          <Icon name={copied ? 'check' : 'content_copy'} size={16} color={copied ? 'var(--accent)' : 'var(--faint)'} />
+        </motion.span>
       </button>
     </div>
   )
@@ -78,6 +118,8 @@ function CommandLine({ command, copied, onCopy }: CommandLineProps) {
 export function LandingHero() {
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const reduce = useReducedMotion()
+  const gateRef = useInView<HTMLElement>()
 
   function copyCmd(command: string, pkg: string) {
     try {
@@ -93,15 +135,16 @@ export function LandingHero() {
 
   return (
     <header
+      ref={gateRef}
       style={{
         position: 'relative',
         overflow: 'hidden',
-        backgroundImage:
-          'linear-gradient(color-mix(in oklab, var(--line) 36%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--line) 36%, transparent) 1px, transparent 1px)',
-        backgroundSize: '72px 72px',
-        backgroundPosition: 'center top',
       }}
     >
+      <div className="lv-hero-grid" aria-hidden />
+      <div className="lv-aurora lv-aurora-a" aria-hidden />
+      <div className="lv-aurora lv-aurora-b" aria-hidden />
+      <div className="lv-noise" aria-hidden />
       <div
         style={{
           position: 'absolute',
@@ -127,7 +170,6 @@ export function LandingHero() {
         <h1
           style={{
             fontFamily: 'var(--font-display)',
-            animation: `${riseBase} .06s both`,
             fontSize: 'clamp(34px, 6.6vw, 74px)',
             lineHeight: 1.07,
             letterSpacing: '-0.03em',
@@ -137,17 +179,18 @@ export function LandingHero() {
             textWrap: 'balance',
           }}
         >
-          Build{' '}
-          <span
-            style={{
-              background: 'linear-gradient(100deg, var(--accent), #4d8dff 80%)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              color: 'transparent',
-            }}
-          >
-            AI Media Applications.
-          </span>
+          <Word i={0} reduce={reduce}>
+            Build
+          </Word>{' '}
+          <Word i={1} gradient reduce={reduce}>
+            AI
+          </Word>{' '}
+          <Word i={2} gradient reduce={reduce}>
+            Media
+          </Word>{' '}
+          <Word i={3} gradient reduce={reduce}>
+            Applications.
+          </Word>
         </h1>
 
         <p
@@ -166,7 +209,7 @@ export function LandingHero() {
           media workflows with open-source infrastructure.
         </p>
 
-        {/* subtle outline actions */}
+        {/* one primary, one secondary; GitHub and Discord live in the trust row */}
         <div
           style={{
             display: 'flex',
@@ -177,8 +220,21 @@ export function LandingHero() {
             animation: `${riseBase} .18s both`,
           }}
         >
-          <Link href={GET_STARTED_URL} className="lv-outline lv-hero-btn" style={{ ...outlineBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-            <Icon name="rocket_launch" size={15} color="var(--accent)" />
+          <Link
+            href={GET_STARTED_URL}
+            className="lv-accent-btn lv-nav-cta lv-cta-primary"
+            style={{
+              color: 'var(--ink)',
+              fontWeight: 600,
+              fontSize: 'clamp(13px, 1.6vw, 14px)',
+              padding: '10px 22px',
+              borderRadius: 999,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+            }}
+          >
+            <Icon name="rocket_launch" size={15} color="var(--ink)" />
             Get Started
           </Link>
           <Link
@@ -197,21 +253,6 @@ export function LandingHero() {
             <Icon name="play_circle" size={15} color="var(--accent)" />
             Live Playground
           </Link>
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="lv-outline lv-hero-btn" style={{ ...outlineBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-            <Icon name="star" size={15} color="#f5c518" />
-            GitHub
-          </a>
-          <a
-            href={DISCORD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="lv-outline lv-hero-btn"
-            style={{ ...outlineBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}
-            onClick={() => trackEvent('discord_clicked', { source: 'hero' })}
-          >
-            <DiscordIcon size={15} />
-            Discord
-          </a>
         </div>
 
         {/* trust badges */}
@@ -244,6 +285,20 @@ export function LandingHero() {
           >
             Apache 2.0
           </span>
+          {/* No second GitHub link here: demoting the old GitHub button into
+              this row would have put two links to the same URL side by side,
+              and "Star us on GitHub" above is the more specific of the two. */}
+          <a
+            href={DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lv-ghost"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}
+            onClick={() => trackEvent('discord_clicked', { source: 'hero' })}
+          >
+            <DiscordIcon size={14} />
+            Discord
+          </a>
         </div>
 
         {/* install commands — one per package, each independently copyable */}
@@ -259,7 +314,7 @@ export function LandingHero() {
           {libraries.map((lib) => {
             const installCmd = `npm install ${lib.pkg}`
             return (
-              <div
+              <Spotlight
                 key={lib.pkg}
                 className="lv-pgcard"
                 style={{
@@ -332,7 +387,7 @@ export function LandingHero() {
                     />
                   )}
                 </div>
-              </div>
+              </Spotlight>
             )
           })}
         </div>

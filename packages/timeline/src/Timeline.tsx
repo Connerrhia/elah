@@ -1,5 +1,4 @@
 import {
-  Fragment,
   forwardRef,
   memo,
   useCallback,
@@ -22,11 +21,16 @@ import { Ruler } from './Ruler'
 import { Playhead } from './Playhead'
 import { TrackRow } from './TrackRow'
 import { AudioDropDialog } from './AudioDropDialog'
-import { AiTrackDialog } from './AiTrackDialog'
 import { cn } from './cn'
-import { timelineContentWidth } from './contentWidth'
 import { computeAnchoredScrollLeft, resolveZoomAnchorX, wheelZoomStep } from './zoomAnchor'
 import type { TimelineClassNames } from './classNames'
+import {
+  VisibleWindowContext,
+  SHOW_ALL_WINDOW,
+  computeVisibleWindow,
+  QUANTUM_PX,
+  type VisibleWindow,
+} from './visible-window'
 
 export interface TimelineRef {
   engine: TimelineEngine
@@ -98,16 +102,6 @@ export interface TimelineProps {
    * controls are hidden; pair with a small `sidebarWidth`.
    */
   compactSidebar?: boolean
-  /**
-   * Extra content rendered as its own row within the scrollable track area,
-   * right after the track identified by `trackSlotAfterTrackId` (or after the
-   * last track if that id isn't found / is omitted). Lets the host app pin an
-   * action — e.g. a "Generate subtitles" launcher — beneath a specific lane
-   * without the package knowing anything about what that action does.
-   */
-  trackSlot?: React.ReactNode
-  /** See `trackSlot`. */
-  trackSlotAfterTrackId?: string | null
 }
 
 /**
@@ -136,8 +130,6 @@ export const Timeline = memo(
       classNames,
       sidebarWidth = SIDEBAR_WIDTH,
       compactSidebar = false,
-      trackSlot,
-      trackSlotAfterTrackId,
     },
     ref,
   ) {
@@ -157,7 +149,7 @@ export const Timeline = memo(
     // Cached container width — the scroll handler reads this instead of
     // clientWidth so it never forces a reflow on every scroll event.
     const containerWidthRef = useRef(0)
-    const [visibleWindow, setVisibleWindow] = useState({ start: 0, end: Infinity })
+    const [visibleWindow, setVisibleWindow] = useState<VisibleWindow>(SHOW_ALL_WINDOW)
 
     // Fit the entire timeline into the visible lane width. Falls back to a
     // 10-second baseline (matching the ruler) when the timeline is empty.
@@ -215,6 +207,47 @@ export const Timeline = memo(
       }
     }, [])
 
+    // Recomputes the virtualization window from the cached width + current
+    // scrollLeft. Bails the setState when both bounds are unchanged so the
+    // VisibleWindowContext value (and its subscriber re-renders) stay quantized
+    // to QUANTUM_PX steps instead of firing every scroll frame.
+    const updateWindow = useCallback(() => {
+      const el = scrollRef.current
+      if (!el) return
+      const next = computeVisibleWindow(
+        el.scrollLeft,
+        containerWidthRef.current,
+        sidebarWidth,
+        QUANTUM_PX,
+      )
+      setVisibleWindow((prev) =>
+        prev.start === next.start && prev.end === next.end ? prev : next,
+      )
+    }, [sidebarWidth])
+
+    const handleTrackAreaScroll = useCallback(() => {
+      syncRulerScroll()
+      updateWindow()
+    }, [syncRulerScroll, updateWindow])
+
+    // Keep the cached container width current via ResizeObserver, and
+    // recompute the window whenever it changes. Seeded synchronously in a
+    // layout effect so the first updateWindow() (on mount) sees the real
+    // width instead of the useRef(0) default, which would cull on-screen clips.
+    useLayoutEffect(() => {
+      const el = scrollRef.current
+      if (!el) return
+      containerWidthRef.current = el.clientWidth
+      const observer = new ResizeObserver((entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        containerWidthRef.current = entry.contentRect.width
+        updateWindow()
+      })
+      observer.observe(el)
+      return () => observer.disconnect()
+    }, [updateWindow])
+
     // Apply the deferred scroll correction once the lanes have re-rendered at
     // the new zoom (layout effect runs before paint — no visible flicker).
     useLayoutEffect(() => {
@@ -225,6 +258,9 @@ export const Timeline = memo(
       if (!el) return
       el.scrollLeft = Math.max(0, pending)
       syncRulerScroll()
+      // scrollLeft just changed under us — recompute the visible window from
+      // the corrected position, not the pre-correction one.
+      updateWindow()
     })
 
     useImperativeHandle(
@@ -237,6 +273,13 @@ export const Timeline = memo(
     const totalFrames = useTracksStore((s) => s.totalFrames)
     const zoom = usePlaybackStore((s) => s.zoom)
     const setCurrentFrame = usePlaybackStore((s) => s.setCurrentFrame)
+
+    // Recompute on mount and whenever zoom changes — zoom changes clip pixel
+    // positions, so the same scrollLeft maps to a different visible clip set.
+    // Layout-effect timing avoids a first-paint flash where all clips mount.
+    useLayoutEffect(() => {
+      updateWindow()
+    }, [zoom, updateWindow])
 
     // Ctrl/Cmd + scroll → zoom, anchored under the cursor. Bound to the
     // timeline ROOT (capture phase) so it also covers the ruler and sidebar —
@@ -435,18 +478,6 @@ export const Timeline = memo(
 
     const rulerHeight = 24
 
-    // `trackSlot` renders right after the track named by `trackSlotAfterTrackId`,
-    // falling back to after the very last track when that id is unset or no
-    // longer exists (e.g. the track it anchors to hasn't been created yet).
-    const slotAfterIndex = trackSlot
-      ? (() => {
-          const named = trackSlotAfterTrackId
-            ? tracks.findIndex((t) => t.id === trackSlotAfterTrackId)
-            : -1
-          return named !== -1 ? named : tracks.length - 1
-        })()
-      : -1
-
     return (
       <div
         ref={rootRef}
@@ -494,7 +525,7 @@ export const Timeline = memo(
         {/* Track area — single scroll source; scrollbar sits at the bottom */}
         <div
           ref={scrollRef}
-          onScroll={syncRulerScroll}
+          onScroll={handleTrackAreaScroll}
           style={{
             flex: 1,
             overflow: 'auto',
@@ -505,9 +536,10 @@ export const Timeline = memo(
             touchAction: 'pan-x pan-y',
           }}
         >
-          {tracks.map((track, index) => (
-            <Fragment key={track.id}>
+          <VisibleWindowContext.Provider value={visibleWindow}>
+            {tracks.map((track) => (
               <TrackRow
+                key={track.id}
                 track={track}
                 totalFrames={Math.max(totalFrames, fps * 10)}
                 zoom={zoom}
@@ -527,30 +559,8 @@ export const Timeline = memo(
                 clipTextAccent={classNames?.clipTextAccent}
                 clipImageAccent={classNames?.clipImageAccent}
               />
-              {index === slotAfterIndex && trackSlot && (
-                // Mirrors TrackRow's row shape (sidebar spacer + a lane sized
-                // to the same rowMinWidth) purely for layout — so content
-                // placed via `trackSlot` (e.g. a sticky-right launcher
-                // button) behaves the same way TrackRow's own sticky CTAs do
-                // at any zoom level, without the host app needing to know
-                // about sidebarWidth/zoom/totalFrames itself.
-                <div style={{ display: 'flex', height: 34 }}>
-                  <div aria-hidden style={{ width: sidebarWidth, flexShrink: 0 }} />
-                  <div
-                    style={{
-                      position: 'relative',
-                      flex: 1,
-                      minWidth: timelineContentWidth(Math.max(totalFrames, fps * 10), zoom),
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {trackSlot}
-                  </div>
-                </div>
-              )}
-            </Fragment>
-          ))}
+            ))}
+          </VisibleWindowContext.Provider>
 
           {tracks.length === 0 && (
             <div
@@ -578,9 +588,6 @@ export const Timeline = memo(
         {/* Blocking modal for the "video has audio" drop choice (position:fixed,
             so it overlays the whole app regardless of mount point). */}
         <AudioDropDialog />
-
-        {/* AI-tools modal, opened from the Sparkles button on a track label. */}
-        <AiTrackDialog />
       </div>
     )
   }),

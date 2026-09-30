@@ -515,6 +515,7 @@ export const ClipBlock = memo(function ClipBlock({
       onContextMenu={handleContextMenu}
       // Styling hooks (inert): let CSS retint per clip type / selection state —
       // e.g. audio waveform tint and the blue selected-audio body.
+      data-clip-id={clip.id}
       data-clip-type={clip.type}
       data-selected={isSelected ? 'true' : 'false'}
       className={cn('rounded-[4px]', clipAccent, clipBg, className)}
@@ -685,7 +686,7 @@ export const ClipBlock = memo(function ClipBlock({
             fontWeight: 700,
             letterSpacing: '0.02em',
             color: 'var(--elah-text-on-clip)',
-            background: 'rgba(0,0,0,0.55)',
+            background: 'var(--elah-clip-badge-bg, rgba(0, 0, 0, 0.55))',
             pointerEvents: 'none',
           }}
         >

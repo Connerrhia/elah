@@ -1,6 +1,11 @@
-import type { CSSProperties } from 'react'
+'use client'
+
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { Icon } from './Icon'
 import { tracks, type TrackClip } from './landingData'
+import { Tilt } from './motion/Tilt'
+import { useInView } from './motion/useInView'
 
 // A static, decorative reproduction of /playground/production, pinned dark in
 // both themes (it depicts a dark tool surface). Colours are intentionally
@@ -82,6 +87,62 @@ function Clip({ c, mobile }: { c: TrackClip; mobile?: boolean }) {
       >
         {c.label}
       </span>
+    </span>
+  )
+}
+
+const FPS = 30
+const TOTAL_SECONDS = 12
+
+/**
+ * Timecode that follows the CSS playhead sweep. It reads the playhead's own
+ * running animation (Web Animations API) so it can never drift from lv-phSweep,
+ * and it writes straight to the text node: no React state, no re-render.
+ * The loop only runs while the mockup is on screen; with reduced motion there
+ * is no animation to read, so the static timecode stays.
+ */
+function LiveTimecode({ initial, mobile }: { initial: string; mobile?: boolean }) {
+  const textRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const text = textRef.current
+    const root = text?.closest<HTMLElement>('[data-lv-desktop], [data-lv-mobile]')
+    const head = root?.querySelector<HTMLElement>('[data-lv-playhead]')
+    if (!text || !root || !head || typeof IntersectionObserver === 'undefined') return
+    const [from, span] = mobile ? [0.05, 0.87] : [0.03, 0.9]
+    const pad = (n: number) => String(n).padStart(2, '0')
+    let raf = 0
+
+    const tick = () => {
+      const anim = head.getAnimations()[0]
+      if (!anim) return // reduced motion: keep the static timecode
+      const ct = Number(anim.currentTime ?? 0)
+      const within = ct % 32000
+      const f = within < 16000 ? within / 16000 : 2 - within / 16000
+      const seconds = (from + span * f) * TOTAL_SECONDS
+      const whole = Math.floor(seconds)
+      const frames = Math.floor((seconds - whole) * FPS)
+      text.textContent = mobile ? `00:${pad(whole)}:${pad(frames)}` : `00:00:${pad(whole)}:${pad(frames)}`
+      raf = requestAnimationFrame(tick)
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        cancelAnimationFrame(raf)
+        if (entries[entries.length - 1].isIntersecting) raf = requestAnimationFrame(tick)
+      },
+      { rootMargin: '120px' },
+    )
+    io.observe(root)
+    return () => {
+      io.disconnect()
+      cancelAnimationFrame(raf)
+    }
+  }, [mobile])
+
+  return (
+    <span ref={textRef} style={{ color: '#00c2ff' }}>
+      {initial}
     </span>
   )
 }
@@ -410,7 +471,7 @@ function DesktopMockup() {
             }}
           >
             <span style={{ fontFamily: MONO, fontSize: 10.5 }}>
-              <span style={{ color: '#00c2ff' }}>00:00:02:15</span>
+              <LiveTimecode initial="00:00:02:15" />
               <span style={{ color: '#9ca3af' }}> | 00:00:12:00</span>
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -599,6 +660,7 @@ function DesktopMockup() {
           </div>
         ))}
         <span
+          data-lv-playhead
           style={{
             position: 'absolute',
             top: 0,
@@ -727,7 +789,7 @@ function MobileMockup() {
         }}
       >
         <span style={{ fontFamily: MONO, fontSize: 9.5 }}>
-          <span style={{ color: '#00c2ff' }}>00:02:15</span>
+          <LiveTimecode initial="00:02:15" mobile />
           <span style={{ color: '#9ca3af' }}> | 00:12:00</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -819,7 +881,7 @@ function MobileMockup() {
             </div>
           </div>
         ))}
-        <span style={{ position: 'absolute', top: 0, bottom: 0, left: 'calc(42px + (100% - 42px) * 0.24)', width: 1.5, background: '#fff', zIndex: 3, animation: 'lv-phSweepMobile 16s linear infinite alternate' }} />
+        <span data-lv-playhead style={{ position: 'absolute', top: 0, bottom: 0, left: 'calc(42px + (100% - 42px) * 0.24)', width: 1.5, background: '#fff', zIndex: 3, animation: 'lv-phSweepMobile 16s linear infinite alternate' }} />
         <span style={{ position: 'absolute', top: 1, left: 'calc(42px + (100% - 42px) * 0.24)', transform: 'translateX(-50%)', width: 8, height: 8, background: '#fff', borderRadius: 2, zIndex: 3, animation: 'lv-phSweepMobile 16s linear infinite alternate' }} />
       </div>
 
@@ -839,32 +901,56 @@ function MobileMockup() {
 }
 
 export function EditorMockup() {
+  const reduce = useReducedMotion()
+  const gateRef = useInView<HTMLDivElement>()
+  const stageRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: stageRef, offset: ['start 90%', 'start 40%'] })
+  const scale = useTransform(scrollYProgress, [0, 1], [0.94, 1])
+  const rotateX = useTransform(scrollYProgress, [0, 1], [7, 0])
+  const glowOpacity = useTransform(scrollYProgress, [0, 1], [0.2, 1])
+
   return (
     <div
+      ref={gateRef}
       style={{
         maxWidth: 1200,
         margin: 'clamp(36px, 5vw, 56px) auto 0',
         padding: '0 20px clamp(56px, 8vw, 80px)',
         position: 'relative',
-        animation: 'lv-rise .9s cubic-bezier(.2,.7,.2,1) .3s both',
         overflowX: 'auto',
         scrollbarWidth: 'thin',
       }}
     >
-      <div
+      <motion.div
+        aria-hidden
         style={{
           position: 'absolute',
           left: '15%',
           right: '15%',
           top: 20,
           bottom: 60,
-          background: 'radial-gradient(60% 60% at 50% 40%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 75%)',
-          filter: 'blur(40px)',
           pointerEvents: 'none',
-          animation: 'lv-glowPulse 5s ease-in-out infinite',
+          opacity: reduce ? 1 : glowOpacity,
         }}
-      />
-      <DesktopMockup />
+      >
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            background: 'radial-gradient(60% 60% at 50% 40%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 75%)',
+            filter: 'blur(40px)',
+            animation: 'lv-glowPulse 5s ease-in-out infinite',
+          }}
+        />
+      </motion.div>
+      <motion.div
+        ref={stageRef}
+        style={reduce ? undefined : { scale, rotateX, transformPerspective: 1600, transformOrigin: '50% 100%' }}
+      >
+        <Tilt className="lv-tilt-mockup">
+          <DesktopMockup />
+        </Tilt>
+      </motion.div>
       <MobileMockup />
     </div>
   )

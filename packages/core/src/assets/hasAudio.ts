@@ -102,7 +102,12 @@ export function hasAudioDetermined(assetId: string): boolean {
   return determined.has(assetId)
 }
 
-/** Test seam — forgets every memoised determination. */
+/**
+ * Forgets every memoised determination.
+ *
+ * @internal Test seam only: not exported from the package barrel, and clearing
+ * the cache in app code would re-probe every asset.
+ */
 export function __resetHasAudioDeterminations(): void {
   determinations.clear()
   determined.clear()

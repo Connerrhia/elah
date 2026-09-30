@@ -28,9 +28,85 @@ export interface Release {
 
 export const releases: Release[] = [
   {
+    version: '0.6.0',
+    date: '2026-10-02',
+    latest: true,
+    summary:
+      'The premium editor port lands in the open-source packages: multiple video tracks, clip speed, crop and corner radius, layered text animation with 14 templates, frame sequences, stored project documents with media re-linking - and the eight defects found while verifying it.',
+    groups: [
+      {
+        kind: 'added',
+        scope: '@elah/core',
+        items: [
+          'Reading a stored project: readProjectDocument / isReadableProjectDocument / PROJECT_VERSION, plus relinkProjectMedia, which points restored clips back at the media library and reports missing blob:/data: sources instead of dropping them. engine.loadProject gained { transport, history } options and emits project:loaded.',
+          'Layered text and shape animation: TextAnimation.inMotion / outMotion are MotionSpecs (opacity, offset, scale, rotation, per-channel easing), with new back-*, elastic-out and bounce-out curves. The sampling helpers are public: sampleTextAnimation, resolveRampFrames, motionForKind.',
+          'Text templates: BUILT_IN_TEXT_TEMPLATES (14 looks), findTextTemplate and applyTextTemplate, which returns an undoable Partial<Clip> patch for engine.updateClip.',
+          'Clip.speed (0.25 to 4, video only; duration and export follow it), Clip.crop, Clip.cornerRadius, Track.protected and Track.pinned: "bottom".',
+          'Frame sequences: createFrameSequence, FrameSequenceController (scrub, wrap / pingpong looping), createFramePreloader and frameSequenceToProject, which lays a sequence out as image clips so it can be edited and exported.',
+          'Media library: beginImportUrl registers a pending remote asset that resolves later; probeHasAudio / determineAssetHasAudio; snapshotMediaLibrary / hydrateMediaLibrary carry the library across a page load. sourceBlobCache de-duplicates video downloads between the demuxer and the preview.',
+          'Two vanilla stores: textStylePresetsStore and clipLoadStore (renderer state, never part of the project or undo history). PerfSummary reports render-loop tick cost once a second on the PERF trace channel.',
+          'ExportOptions.outputHeight is now the short edge of the stage, so 1080 means 1920x1080 landscape and 1080x1920 portrait.',
+        ],
+      },
+      {
+        kind: 'added',
+        scope: '@elah/timeline',
+        items: [
+          'TimelineRef.zoomAtAnchor zooms anchored on the playhead. growClipToAssetDuration inserts a clip with a fallback length before its media is probed and grows it once the real duration is known; clips still loading show a shimmer.',
+        ],
+      },
+      {
+        kind: 'added',
+        scope: '@elah/react',
+        items: ['useClipLoadStore and useTextStylePresetsStore.'],
+      },
+      {
+        kind: 'added',
+        scope: '@elah/editor',
+        items: [
+          'The barrel re-exports all of the above, including the vanilla clipLoadStore and textStylePresetsStore. New design tokens for the preview overlays and clip badge: --elah-overlay-*, --elah-spinner-*, --elah-clip-badge-bg, --elah-toast-shadow.',
+        ],
+      },
+      {
+        kind: 'changed',
+        items: [
+          'Multiple video tracks. addTrack("video") used to return the existing track; it now adds another. Video tracks composite in track order (the topmost lane draws on top), and a new video track goes directly below the last one.',
+          'Playback preferences (zoom, volume, mute, rate, loop, snap) are written to localStorage when they change rather than on every frame of playback. Same key, same envelope - nothing is lost.',
+          'serializeProject / deserializeProject are unchanged for consumers, now a facade over readProjectDocument. A document with no version stamp reads as version 1 instead of being rejected; one from a newer build throws ProjectDocumentError.',
+          'The timeline mounts only the clips inside the scrolled viewport (horizontal virtualisation), and the ruler shares one timecode formatter with the rest of the UI.',
+        ],
+      },
+      {
+        kind: 'changed',
+        scope: '@elah/cli',
+        items: [
+          '0.1.2 - the build spec places every video clip on one track, so overlapping video clips are now a build error in the spec rather than something the engine rejects; the engine has allowed several video tracks since the multi-track change.',
+        ],
+      },
+      {
+        kind: 'fixed',
+        items: [
+          'Video frames could upload into a disposed GPU texture after a clip source changed. The layer read the texture before replacing the provider; a replaced provider now also inherits the reference count of the clip.',
+          'A preview loading spinner that could never clear after a failed decoder re-open.',
+          'A borrowed frame stretched to the stage between clips; the held-over frame is now fitted by its own dimensions.',
+          'The timeline ruler showed 00:90 instead of 01:30, and its ticks drifted from the clips at low zoom.',
+          'The clip loading shimmer had no CSS, and horizontal clip virtualisation had been silently dropped in the port.',
+          'Preview overlays and clip badges used hard-coded colours and could not be themed; they now read the --elah-* tokens.',
+          'Web playground: deleted media was resurrected from IndexedDB and its object URLs were never revoked.',
+        ],
+      },
+      {
+        kind: 'added',
+        items: [
+          'playground/ is now examples/. New examples/AGENTS.md (the integration contract in one page) and a root npm run verify:examples, the only check in the repo that exercises the published tarballs rather than local source.',
+          '/docs/installation corrected: the sample package.json pinned ^0.2.0, the transpilePackages and Vite optimizeDeps.exclude lists omitted @elah/react, and the peer-dependency section did not mention lucide-react.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.4.1',
     date: '2026-08-02',
-    latest: true,
     summary:
       'Export works out of the box for npm consumers, and @elah/editor finally re-exports its full public API.',
     groups: [

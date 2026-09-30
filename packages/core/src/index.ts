@@ -52,6 +52,9 @@ export type {
   RelinkMediaResult,
 } from './editor/projectDocument'
 
+// --- Persistence ---
+export { serializeProject, deserializeProject } from './project/serialization'
+
 // --- Playback ---
 export { PlaybackEngine } from './playback/PlaybackEngine'
 export type { PlaybackSnapshot, PlaybackEngineConfig } from './playback/PlaybackEngine'

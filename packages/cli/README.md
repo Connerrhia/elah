@@ -82,7 +82,7 @@ Rules:
 - **text** clips need `text` + `duration`; **image** clips need `duration`.
 - **`x`/`y`** are the normalized (0..1) stage position of the clip's center;
   `scale` is relative to native size.
-- **Overlaps**: video clips must not overlap (single video track, engine-enforced);
+- **Overlaps**: every spec video clip is placed on one video track, so video clips must not overlap (the build errors; the engine itself supports more video tracks, the spec format does not);
   overlapping text/image/audio clips are automatically placed on additional
   tracks. Note: a clip bumped to a later track renders *beneath* the one it
   overlaps — list the clip you want on top first.
