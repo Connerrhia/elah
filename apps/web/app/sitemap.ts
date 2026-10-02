@@ -45,7 +45,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: 0.6,
     })),
-    { url: `${base}/showcase`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
     { url: `${base}/blog`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
     ...posts.map((post) => ({
       url: `${base}/blog/${post.slug}`,
@@ -54,6 +53,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.6,
     })),
     { url: `${base}/changelog`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.5 },
-    { url: `${base}/pricing`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
   ]
 }

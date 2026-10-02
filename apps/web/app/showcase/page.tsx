@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   title: 'Showcase',
   description: 'Projects and tools built with elah.',
   alternates: { canonical: '/showcase' },
+  // Hidden from navigation, sitemap and the agents index; reachable by direct link only.
+  robots: { index: false, follow: false },
 }
 
 // No `?template=` query: the repo's ISSUE_TEMPLATE folder has no showcase template.

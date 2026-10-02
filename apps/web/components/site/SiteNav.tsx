@@ -7,7 +7,7 @@ import { AnimatePresence, motion, useReducedMotion, useScroll, type MotionStyle 
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { trackEvent } from '@/lib/analytics'
-import { DISCORD_URL, GET_STARTED_URL, GITHUB_URL, isActiveHref, navLinks, navVariantFor, type NavVariant } from '@/config/nav'
+import { DISCORD_URL, GITHUB_URL, isActiveHref, navLinks, navVariantFor, type NavVariant } from '@/config/nav'
 import { VersionBadge } from '@/components/marketing/VersionBadge'
 import { useScrollDirection } from '@/components/landing/motion/useScrollDirection'
 import { Logo } from './Logo'
@@ -52,7 +52,11 @@ function DesktopLinks({ pathname }: { pathname: string }) {
   )
 }
 
-/** Version pill, Discord, GitHub, primary action. Same markup in both variants. */
+/**
+ * Version pill, Discord, GitHub. Same markup in both variants. There is no
+ * primary action in the header by design: the hero and the closing CTA carry
+ * "Get Started", and a third copy in the chrome was noise on every page.
+ */
 function DesktopActions() {
   const ghost =
     'shrink-0 rounded-lg px-2 py-1.5 text-[13px] font-medium text-on-surface-variant transition-colors hover:text-on-surface'
@@ -71,12 +75,6 @@ function DesktopActions() {
       <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={ghost}>
         GitHub
       </a>
-      <Link
-        href={GET_STARTED_URL}
-        className="ml-1 shrink-0 whitespace-nowrap rounded-[10px] bg-primary px-3 py-1.5 text-[13px] font-semibold text-on-primary transition-colors hover:bg-primary-hover"
-      >
-        Get Started
-      </Link>
     </div>
   )
 }
@@ -117,13 +115,6 @@ function MobileMenuContent({ pathname, onNavigate }: { pathname: string; onNavig
       <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" onClick={onNavigate} className={cn(row, linkIdle)}>
         GitHub <span aria-hidden>↗</span>
       </a>
-      <Link
-        href={GET_STARTED_URL}
-        onClick={onNavigate}
-        className="mt-2 block rounded-lg bg-primary px-3 py-2.5 text-center text-[15px] font-semibold text-on-primary"
-      >
-        Get Started
-      </Link>
     </nav>
   )
 }
@@ -258,8 +249,8 @@ function BarNav({ pathname }: { pathname: string }) {
 }
 
 /**
- * The one site header. Link list, logo, active-route treatment, version pill,
- * Discord/GitHub and the primary action are shared; only the chrome differs.
+ * The one site header. Link list, logo, active-route treatment, version pill
+ * and Discord/GitHub are shared; only the chrome differs.
  */
 export function SiteNav({ variant, overlap = false }: SiteNavProps) {
   const pathname = usePathname() ?? '/'

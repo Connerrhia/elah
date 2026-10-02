@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   description:
     'elah is open source under Apache-2.0 and free to build on, embed, and self-host — including commercial and hosted products. Paid support is available — get in touch.',
   alternates: { canonical: '/pricing' },
+  // Hidden from navigation, sitemap and the agents index; reachable by direct link only.
+  robots: { index: false, follow: false },
 }
 
 const openSourceIncludes = [
