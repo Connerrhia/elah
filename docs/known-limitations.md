@@ -73,7 +73,10 @@ During the transition window:
 
 Through-playing tracks double-image: a frozen ghost on the overlay sits over the
 live version on the canvas. Visually broken for any composition with more than
-one active track at a transition point.
+one active track at a transition point. Since 0.6.0 a project can hold several
+video tracks, so this is easier to hit than it was: a second video lane, a text
+clip or a shape that is on screen while a transition runs is frozen into the
+snapshot.
 
 ### Workaround
 
@@ -112,6 +115,10 @@ incoming clip may still show a black flash or delayed first frame if the snapsho
 overlay doesn't cover it in time.
 
 ### Workaround
+
+Partly mitigated: `<Preview>` resolves a scene a short horizon ahead and calls
+`GpuRenderer.prewarm`, so upcoming video clips open and fill their lookahead before they
+become visible. That is a general look-ahead, not a transition-aware scheduler.
 
 The snapshot overlay masks the incoming clip's decode warmup window — the
 outgoing clip's frozen frame hides the canvas during the transition start. This

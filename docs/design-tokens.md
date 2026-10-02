@@ -94,8 +94,9 @@ from `currentColor`.
 | `border`, `border-subtle`, `outline` | Hairlines and interactive/focus edges |
 | `text`, `text-muted`, `text-on-clip` | Foreground text + label on a colored clip |
 | `accent*` | Primary accent (hover/dim/glow/soft/text variants) |
-| `clip-{video,audio,text,image}-{top,mid,bottom,accent}` | Per-clip-type gradient ramp + accent |
-| `tag-*` | Asset/element kind chips (fg/bg per kind) |
+| `clip-{video,audio,text,image,shape,freehand}-{top,mid,bottom,accent}` | Per-clip-type gradient ramp + accent |
+| `tag-*` | Asset/element kind chips (fg/bg per kind: video, audio, image, text, shape, freehand; text, shape and freehand also carry a border) |
+| `font-ui`, `font-mono`, `radius-sm`, `radius-md` | UI and monospace font stacks, small and medium corner radii |
 | `playhead`, `tick-color`, `tick-label` | Playhead needle, ruler ticks and labels |
 | `selection-{border,glow}` | Selected-clip highlight |
 | `transition-*` | Cut-line + diamond marker states (line/hover/idle/fill/stroke/add) |

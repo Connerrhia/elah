@@ -42,7 +42,8 @@ error:
 
 1. `createDefaultDemuxerFactory()` must be called once at module scope, not per render.
 2. `EditorProvider` reads `fps` / `stage` / `initialTracks` **once, on mount**. Use
-   `engine.setStage(w, h)` to resize at runtime.
+   `engine.setStage(w, h)` to resize at runtime. When `stage` is omitted the engine default
+   is **portrait 1080×1920**; this app passes `1920×1080` explicitly.
 3. Everything must be inside `className="elah-root"` — that scopes the design tokens.
 4. `<Timeline>` needs an explicit height.
 

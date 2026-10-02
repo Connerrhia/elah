@@ -100,6 +100,7 @@ export const releases: Release[] = [
         items: [
           'playground/ is now examples/. New examples/AGENTS.md (the integration contract in one page) and a root npm run verify:examples, the only check in the repo that exercises the published tarballs rather than local source.',
           '/docs/installation corrected: the sample package.json pinned ^0.2.0, the transpilePackages and Vite optimizeDeps.exclude lists omitted @elah/react, and the peer-dependency section did not mention lucide-react.',
+          'Bundle sizes re-measured and the method fixed. BUNDLE_STRATEGY.md now quotes what a browser downloads (esbuild, minified, gzipped, code-split) instead of the raw tsc output the old badges used: ~64 KiB at startup for the full SDK with the demuxer injected, ~11 KiB engine-only, and ~227 KiB on the quick-start path because createDefaultDemuxerFactory imports mediabunny statically. Reproduce with node scripts/measure-bundle.mjs.',
         ],
       },
     ],

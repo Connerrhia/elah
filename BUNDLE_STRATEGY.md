@@ -1,127 +1,182 @@
 # Bundle Strategy
 
-> How `@elah/editor` stays small and why the dependency graph looks the way it
-> does. The goal: a browser-native editor SDK that a React app can adopt without
-> dragging in a media-processing toolchain it didn't ask for.
+> What `@elah/*` costs a consumer, how it is measured, and why the dependency
+> graph looks the way it does. The goal: a browser-native editor SDK that a
+> React app can adopt without dragging in a media-processing toolchain it did
+> not ask for.
 
 ---
 
-## Measured size
+## Measured size (0.6.0, 2026-10-02)
 
-Per-package `dist/` (ESM output of `tsc`, no app bundler), measured on the
-current `main`:
+Reproduce with `node scripts/measure-bundle.mjs` after `npm run build:packages`.
+Two measurements are printed because they answer different questions, and the
+numbers in earlier versions of this file mixed them up.
 
-| Package | gzipped | raw |
+### What a browser downloads
+
+Each package barrel bundled with esbuild (`--bundle --minify --format=esm`,
+then gzipped). `react`, `react-dom` and `lucide-react` are external because the
+host app ships its own copy.
+
+| Package | own code, gz | with its small runtime deps, gz |
 |---|---|---|
-| `@elah/core` | ~41 KiB | 218 KiB |
-| `@elah/timeline` | ~12 KiB | 61 KiB |
-| `@elah/editor` (layer only) | ~10 KiB | 51 KiB |
-| **Full SDK** (`core` + `timeline` + `editor`) | **~63 KiB** | 330 KiB |
+| `@elah/core` | 40.5 KiB | 43.5 KiB |
+| `@elah/react` | 0.9 KiB | 0.9 KiB |
+| `@elah/timeline` | 14.7 KiB | 21.4 KiB |
+| `@elah/editor` (layer only) | 18.5 KiB | 18.5 KiB |
+| **Full SDK** (`editor` with `core` + `react` + `timeline` bundled in) | **69.1 KiB** | **78.7 KiB** |
 
-Runtime deps that ship with the SDK: `immer` (~9 KiB gz) and `zustand`
-(<1 KiB gz). `react` / `react-dom` are peers and not counted. `mediabunny`
-(the heavy media codec layer) is injected by the host app and never bundled —
-see below.
+"Small runtime deps" are `immer` (4.8 KiB gz), `zustand` (3.2), `clsx` (0.2)
+and `tailwind-merge` (6.9). `mediabunny`, the demuxer and muxer, is **158.5 KiB
+gz on its own** and is accounted for separately below, because whether it loads
+at startup depends on how the app wires the demuxer.
+
+### Three real app shapes, with code splitting
+
+The same bundler run with `splitting: true`, which is what Vite, webpack and
+Next do. "At startup" is every chunk the entry imports statically.
+
+| App | at startup, gz | deferred to first decode / export |
+|---|---|---|
+| Engine only: `TimelineEngine`, `resolveTimeline`, `createTextClip` from `@elah/core` | **11 KiB** | nothing |
+| Engine + React UI, demuxer injected or omitted | **68 KiB** | mediabunny, 158 KiB |
+| The README quick start, which calls `createDefaultDemuxerFactory()` | **227 KiB** | export worker only |
+
+The third row is the honest cost of the documented path. `createDefaultDemuxerFactory`
+imports `mediabunny` **statically** (it is the only module in the packages that
+does), so any bundle that references it pulls the codec into the startup graph.
+Everything else reaches mediabunny through a dynamic `import()` in
+`MediabunnyDemuxer` and `hasAudio`, which bundlers split into a chunk that loads
+on first decode. An app that wants the 68 KiB startup either passes its own
+factory via `createMediabunnyBackend` or passes no factory and lets the demuxer
+lazy-load. Making `createDefaultDemuxerFactory` itself lazy is a tracked
+follow-up; it needs a backend wrapper whose `open()` awaits the import, since
+`DemuxerFactory` is synchronous.
+
+### What `npm pack` ships
+
+The tsc ESM output, unminified and not tree-shaken. This is the tarball, not
+the runtime cost, and it overstates the latter by roughly 60 percent.
+
+| Package | files | raw | gz |
+|---|---|---|---|
+| `@elah/core` | 99 | 335.9 KiB | 64.4 KiB |
+| `@elah/react` | 7 | 3.8 KiB | 1.0 KiB |
+| `@elah/timeline` | 26 | 105.3 KiB | 20.2 KiB |
+| `@elah/editor` | 19 | 119.9 KiB | 22.5 KiB |
+
+The 0.2.1 figures that used to live here (~41 / ~12 / ~10 / ~63 KiB) were this
+tarball measurement, presented in the badges as if they were a bundle size.
+They are retired; the badges now quote the bundled SDK.
 
 ---
 
 ## Dependency budget
 
-The published package depends on exactly two runtime libraries:
+Runtime dependencies, per package, as published:
 
-| Dependency | Why it's in |
+| Package | Runtime dependencies | Why |
+|---|---|---|
+| `@elah/core` | `immer` | Structural-sharing mutations and undo/redo in `TimelineEngine` |
+| | `zustand` | Vanilla stores (`tracksStore`, `playbackStore`, …) that `@elah/react` mirrors into React |
+| | `mediabunny` | Demux for decode, mux for export, audio-track probing. Lazy except through `createDefaultDemuxerFactory`, see above |
+| `@elah/react` | `zustand` | The `useStore` bridge |
+| `@elah/timeline` | `clsx`, `tailwind-merge` | The `classNames` slot API and `cn` |
+| `@elah/editor` | `immer`, `zustand` | Re-exported for consumers who build on the stores directly |
+
+`react` and `react-dom` (`>= 18`) are **peer** dependencies of `react`,
+`timeline` and `editor`; `lucide-react` (`>= 0.400`) is a peer of `timeline`
+and `editor`. The host app owns all three.
+
+`@elah/cli` is a **binary, not a library**: nothing it depends on reaches a
+consumer bundle. Its budget:
+
+| Dependency | Why |
 |---|---|
-| `immer` | Structural-sharing mutations + undo/redo in `TimelineEngine` |
-| `zustand` | Ring 1 reactive store mirrors for React consumers |
+| `@elah/core` | The engine itself. esbuild bundles it into `dist/bin.js` at build time and tree-shakes the browser-only modules out of the Node binary |
+| `playwright-core` | Drives the system Chrome so `elah export` runs core's real `exportVideo` pipeline (WebCodecs and OffscreenCanvas are browser-only). No browser download |
+| `mediabunny` | Probes media duration and dimensions for `elah build` in plain Node (pure-JS demux, ranged reads for remote URLs) |
+| `esbuild` (dev) | Build-time bundling of the binary |
 
-`react` / `react-dom` are **peer** dependencies (`>= 18`) — the host app owns the
-React copy.
-
-`@elah/cli` is a **binary, not a library** — nothing it depends on can reach a
-consumer bundle. Its budget is still enumerated:
-
-| Dependency | Why it's in |
-|---|---|
-| `@elah/core` | The engine itself — the CLI is a thin consumer of its public APIs |
-| `playwright-core` | Drives the system Chrome so `elah export` runs core's real `exportVideo` pipeline (WebCodecs/OffscreenCanvas are browser-only); no bundled browser download |
-| `mediabunny` | Probes media duration/dimensions for `elah build` in plain Node (pure-JS demux, no WebCodecs; ranged reads for remote URLs); already a core dependency, bundled into the binary, never reaches a consumer bundle |
-| `esbuild` (dev, build-time only) | core's tsc dist uses extensionless relative imports (bundler resolution) that plain Node cannot resolve; the CLI bundles at build time and tree-shakes core's browser-only modules out of the Node binary |
-
-Everything else the engine needs is a **browser-native API**, not a bundled
-dependency: WebCodecs (`VideoDecoder`), WebGL2, Web Audio (`OfflineAudioContext`),
-`OffscreenCanvas`, `createImageBitmap`. No WASM runtime ships in the core.
+Everything else the engine needs is a browser-native API, not a dependency:
+WebCodecs (`VideoDecoder`, `VideoEncoder`), WebGL2, Web Audio, `OffscreenCanvas`,
+`createImageBitmap`. No WASM runtime ships in any package.
 
 ---
 
-## mediabunny is injected, never bundled
+## Where mediabunny is allowed to appear
 
-Demuxing/muxing is the heaviest piece of a video editor, and `@elah/editor`
-deliberately does **not** depend on it. The core defines a `DemuxerBackend`
-interface and accepts a `demuxerFactory`; the consuming app imports `mediabunny`
-and wires it in:
+Demuxing and muxing are the heaviest piece of a video editor, so the rule is
+that they are reachable but never load unless the app decodes or exports.
+
+- `@elah/editor`, `@elah/timeline` and `@elah/react` never import mediabunny.
+- In `@elah/core`, `MediabunnyDemuxer.open()` and `hasAudio` use `import('mediabunny')`.
+  The export worker imports it statically, but the worker is its own module
+  graph, loaded through `new Worker(new URL('./ExportWorker.ts', import.meta.url))`
+  only when `exportVideo` runs.
+- `createDefaultDemuxerFactory` is the one static import, documented above.
+- The `DemuxerBackend` interface and `createMediabunnyBackend(mb, opts)` let an
+  app supply its own mediabunny build, or a different decoder entirely:
 
 ```ts
 import { GpuRenderer, createMediabunnyBackend } from '@elah/editor'
 import * as mediabunny from 'mediabunny'
 
-const demuxerFactory = () => createMediabunnyBackend(mediabunny, { /* … */ })
+const demuxerFactory = () => createMediabunnyBackend(mediabunny)
 new GpuRenderer({ demuxerFactory })
 ```
 
-Consequences:
-
-- Apps that only need the timeline/engine never pull in mediabunny.
-- `@elah/editor`'s `index.ts` never statically imports mediabunny — the
-  `createMediabunnyBackend` adapter takes the module as an argument.
-- Without a `demuxerFactory`, the renderer falls back to a synthetic provider, so
-  the engine is usable (and testable) with zero media dependencies.
-
-The export path *does* use mediabunny directly inside the worker, because muxing
-an MP4 has to happen somewhere; that import lives in `ExportWorker.ts` and is only
-pulled when an app actually bundles and spawns the worker.
+- Without any `demuxerFactory`, the renderer falls back to a synthetic provider,
+  so the engine is usable and testable with zero media loaded.
 
 ---
 
-## One package, folders not packages
+## Five packages, one dependency direction
 
-The repo is a single package (`@elah/editor`) with three internal layers
-(`core/` → `timeline/` → `editor/`). No micro-packages (`@app/types`,
-`@app/utils`, …) — they add build steps and version-skew without buying
-isolation that folders + a dependency rule don't already provide
-(`ARCHITECTURE.md` § 9, A6). Extraction stays mechanical if real pressure
-(a non-React consumer, independent adoption) ever appears.
+```
+@elah/core  ←  @elah/react  ←  @elah/timeline  ←  @elah/editor
+@elah/core  ←  @elah/cli
+```
+
+`core` has no React. `react` is the only package that imports it for the store
+bridge. `timeline` and `editor` are React components. A consumer who wants the
+engine alone installs `core` and pays the 11 KiB startup in the table above.
+`ARCHITECTURE.md` § 9 (A6) is the rule against splitting further into
+micro-packages; these five exist because each has a real, separately adopted
+consumer.
 
 ---
 
-## Tree-shaking & dead-code boundaries
+## Tree-shaking and dead-code boundaries
 
-- **Named exports only** from `index.ts` — no namespace re-exports — so bundlers
-  can drop unused symbols.
+- **Named exports only** from every barrel, no namespace re-exports, so bundlers
+  can drop unused symbols. The engine-only row above is this working.
 - **Debug tooling is import-only-when-needed.** `GpuRendererDebugPanel`,
-  `DebugGpuRenderer`, `DebugOverlay`, and the scenario harness are not on the
-  production render path; an app that never calls `setDebug(true)` doesn't pay
-  for them.
-- **The export worker is a separate module graph.** It's loaded via
-  `new Worker(new URL('./ExportWorker.ts', import.meta.url), { type: 'module' })`,
-  which Vite (and compatible bundlers) code-split automatically. An app that
-  never exports never loads the worker chunk.
+  `DebugGpuRenderer`, `DebugOverlay` and the scenario harness are not on the
+  production render path.
+- **The export worker is a separate module graph**, code-split by any bundler
+  that understands the `new URL(..., import.meta.url)` worker pattern.
 - **Trace logging is a cheap no-op when off.** `trace()` is a single `Set`
-  lookup; disabled channels cost nothing on hot paths.
+  lookup, and `PerfSummary` is silent unless the `PERF` channel is on.
 
 ---
 
 ## Consumer build requirements
 
 - A bundler that understands the `new URL(..., import.meta.url)` worker pattern
-  (Vite, recent webpack). The playground uses Vite.
-- WebCodecs / WebGL2 / Web Audio at runtime — i.e. a modern Chromium or Firefox.
-  There is a WebGL1 fallback in `WebGLContext`, but decode requires WebCodecs.
+  and splits dynamic imports: Vite, webpack 5, Next. The `examples/` apps use
+  Vite and Next.
+- WebCodecs, WebGL2 and Web Audio at runtime, which today means Chromium. There
+  is a WebGL1 fallback in `WebGLContext`, but decode requires WebCodecs.
 
 ---
 
 ## Future
 
-- Optional sub-path exports (e.g. `@elah/editor/export`) if apps want the timeline
-  without the export worker in their module graph.
-- A formal `@public` API surface marking so internal symbols can change without a
-  major version bump.
+- Make `createDefaultDemuxerFactory` lazy so the quick-start path starts at
+  68 KiB instead of 227 KiB.
+- Optional sub-path exports (for example `@elah/editor/export`) if apps want the
+  timeline without the export worker in their module graph.
+- A formal `@public` API marking so internal symbols can change without a major
+  version bump.

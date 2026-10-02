@@ -7,7 +7,7 @@ Used internally by `@elah/react`, `@elah/timeline`, and `@elah/editor`, but can 
 React hooks are **not** in this package — they live in [`@elah/react`](https://www.npmjs.com/package/@elah/react), which wraps the stores below for component use.
 
 [![npm](https://img.shields.io/npm/v/@elah/core)](https://www.npmjs.com/package/@elah/core)
-[![gzip size](https://img.shields.io/badge/gzip-41%20KiB-brightgreen)](../../BUNDLE_STRATEGY.md)
+[![gzip size](https://img.shields.io/badge/gzip-~41%20KiB-brightgreen)](../../BUNDLE_STRATEGY.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/elahlabs/elah/blob/main/LICENSE)
 
 ---
@@ -18,7 +18,7 @@ React hooks are **not** in this package — they live in [`@elah/react`](https:/
 npm install @elah/core
 ```
 
-**Bundle size:** ~41 KiB gzipped (218 KiB raw, `tsc` ESM output). Core runtime deps: `immer` (~9 KiB gz) + `zustand` (<1 KiB gz). The media toolchain (`mediabunny`) is lazy-imported by the export pipeline and demuxer, so it stays out of the main bundle until you actually decode or export — see [`lazyExport`](./src/export/lazyExport.ts).
+**Bundle size:** ~41 KiB gzipped, minified and tree-shaken (an engine-only app starts at ~11 KiB). Runtime deps: `immer` (~5 KiB gz), `zustand` (~3 KiB gz), and `mediabunny` (~159 KiB gz), which the demuxer and export worker load lazily on first decode or export — except through `createDefaultDemuxerFactory`, which imports it statically. See [BUNDLE_STRATEGY.md](../../BUNDLE_STRATEGY.md) for the measured shapes.
 
 ---
 

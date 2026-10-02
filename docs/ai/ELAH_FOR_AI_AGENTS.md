@@ -979,5 +979,5 @@ Errors are path-addressed (`clips[2].duration must be ...`) so a model can corre
 | `@elah/timeline` | The `<Timeline>` UI | Rarely — same |
 | `@elah/cli` | Headless server-side rendering (`elah build / export / serve`), see [section 10](#10-headless-rendering-with-elahcli) | Separate Node tool, versioned independently (0.1.2) |
 
-Bundle cost: ~63 KiB gzipped for the full SDK graph. `mediabunny` (the demuxer) is injected at
+Bundle cost: ~64 KiB gzipped at startup for the full SDK graph, plus ~159 KiB for `mediabunny` (the demuxer), which loads lazily on first decode unless the app calls `createDefaultDemuxerFactory()`, whose static import puts it in the startup graph. mediabunny is injected at
 runtime, never bundled.

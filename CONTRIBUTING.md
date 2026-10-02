@@ -18,25 +18,32 @@ cd elah
 # 2. Install dependencies (npm workspaces monorepo — always run from the root)
 npm install
 
-# 3. Build the packages (core → timeline → editor, in dependency order)
+# 3. Build the packages (core → react → timeline → editor → cli, in dependency order)
 npm run build:packages
 
 # 4. Verify everything works
 npm run typecheck
 npm test
 
-# 5. Start the dev playground (apps/web)
+# 5. Start the dev site and playgrounds (apps/web, http://localhost:3001)
 npm run dev
 ```
+
+`npm run dev` serves `apps/web` on **port 3001**. `apps/web` aliases `@elah/*` to the
+package *sources*, so edits under `packages/*/src` show up with Fast Refresh and need no
+rebuild; everything else that imports a package gets the built `dist/` (see
+[`AGENTS.md`](./AGENTS.md#the-srcdist-asymmetry--read-this-before-debugging-a-stale-build)).
 
 Repo layout:
 
 ```
-packages/core      # framework-agnostic engine, resolver, renderer, export
-packages/timeline  # React timeline UI components and hooks
-packages/editor    # full React editor SDK (bundles core + timeline)
-packages/cli       # @elah/cli — headless runtime (split/trim/build/export via system Chrome)
-apps/web           # dev playground started by `npm run dev`
+packages/core      # @elah/core: framework-agnostic engine, resolver, renderer, export (zero React)
+packages/react     # @elah/react: editor context, store hooks, audio hooks
+packages/timeline  # @elah/timeline: React timeline UI components and hooks
+packages/editor    # @elah/editor: EditorProvider, Preview, panels; re-exports core, react and timeline
+packages/cli       # @elah/cli: headless runtime (build/export/serve via system Chrome), versioned on its own
+apps/web           # the elah.dev site, docs and in-browser playgrounds, started by `npm run dev`
+apps/server        # render-server example built on @elah/cli
 examples/          # standalone apps consuming @elah/editor from npm — not
                    # part of the workspace; see examples/README.md
 ```
@@ -49,7 +56,7 @@ examples/          # standalone apps consuming @elah/editor from npm — not
    [`CURRENT_LIMITATIONS.md`](./CURRENT_LIMITATIONS.md) (known gaps).
 2. Pick a slice small enough to land in one reviewable PR.
 3. Branch, implement, verify (`npm run typecheck` + `npm test`), smoke-test in
-   the playground, open a PR.
+   the dev app (`npm run dev`, then open the editor or a playground route), open a PR.
 
 ---
 
@@ -83,17 +90,45 @@ When you open an issue, choose the right template:
 ### Every PR must
 
 1. Pass `npm run typecheck` at the repo root.
-2. Pass `npm test` (the editor package's vitest suites).
-3. Smoke-test in `apps/playground` — confirm the demo still works.
+2. Pass `npm test` (the vitest suites of core, react, timeline, editor, cli and `apps/web`).
+3. Smoke-test in the dev app (`npm run dev` serves `apps/web` on :3001) — confirm the editor
+   and the playgrounds still work.
 4. Touch only files within the change's scope. Unrelated cleanups get their own PR.
 
 ### Every PR should
 
 5. Keep the diff focused. If it grows past a few hundred lines of net-new code, split it.
-6. Update docs when public API or a documented contract changes.
+6. Update docs when public API or a documented contract changes (the list below).
 7. Update [`docs/known-bugs.md`](./docs/known-bugs.md) when adding a deliberate
    workaround, and [`CURRENT_LIMITATIONS.md`](./CURRENT_LIMITATIONS.md) when
    shipping or closing a known gap.
+8. Run `npm run lint:tokens` when you touch UI in `packages/timeline` or `packages/editor`
+   (no raw colour literals; see [`docs/design-tokens.md`](./docs/design-tokens.md)).
+
+### When you change the public API
+
+An added or renamed export updates, in the same PR:
+
+- the package barrel (`packages/<pkg>/src/index.ts`, and `packages/editor/src/index.ts`, which
+  re-exports the public API of core, react and timeline);
+- the README of every package it touches: `packages/core/README.md`,
+  `packages/react/README.md`, `packages/timeline/README.md`, `packages/editor/README.md`,
+  `packages/cli/README.md`;
+- `/docs/api` (`apps/web/app/docs/api/page.tsx`) and any docs page that shows it;
+- [`CHANGELOG.md`](./CHANGELOG.md) and `apps/web/config/changelog.ts` (the site reads the
+  latter);
+- [`docs/ai/ELAH_FOR_AI_AGENTS.md`](./docs/ai/ELAH_FOR_AI_AGENTS.md), which duplicates the API
+  surface by design.
+
+### Releases (maintainers)
+
+The full checklist is in [`AGENTS.md`](./AGENTS.md#releases). The short form: bump the
+versions, run `npm install --package-lock-only` **before tagging**, build, update `CHANGELOG.md`
+and `apps/web/config/changelog.ts`, pass the release gate, then publish by hand in dependency
+order `@elah/core` → `@elah/react` → `@elah/timeline` → `@elah/editor` → `@elah/cli`, one
+`npm publish --workspace=packages/<pkg> --access public` at a time and **never**
+`npm publish --workspaces`. Tag `v<version>` for the four lockstep packages (`v0.6.0`) and
+`cli-v<version>` for the CLI (`cli-v0.1.2`).
 
 ### PRs that won't be merged
 

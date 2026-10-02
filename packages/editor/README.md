@@ -5,7 +5,7 @@ The full Elah video editor SDK for React. Combines the core engine, timeline UI,
 Ships `EditorProvider`, `Preview` (WebGL2 canvas + interactive transform overlays), `Timeline`, `AssetPanel`, `SourcePanel`, and `ElementsPanel`, and re-exports the public `@elah/core`, `@elah/react`, and `@elah/timeline` API — so most apps only ever import from `@elah/editor`. (Renderer and debug internals are the exception; import those from `@elah/core` directly.) Supports video, image, text, **shape**, and **freehand** clips, **multiple video tracks**, **multi-track audio**, and MP4 export.
 
 [![npm](https://img.shields.io/npm/v/@elah/editor)](https://www.npmjs.com/package/@elah/editor)
-[![gzip size](https://img.shields.io/badge/gzip-~63%20KiB%20full%20SDK-brightgreen)](../../BUNDLE_STRATEGY.md)
+[![gzip size](https://img.shields.io/badge/gzip-~64%20KiB%20SDK-brightgreen)](../../BUNDLE_STRATEGY.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/elahlabs/elah/blob/main/LICENSE)
 
 ---
@@ -20,7 +20,7 @@ Peer dependencies: `react`, `react-dom` >= 18, `lucide-react` >= 0.400.0 (used b
 bundled `@elah/timeline` UI for clip icons — install it alongside `react`/`react-dom`
 even though nothing in your own code imports it).
 
-**Bundle size:** ~10 KiB gzipped for the editor layer (51 KiB raw); ~63 KiB gzipped for the full SDK graph (`core` + `timeline` + `editor`, 330 KiB raw). `mediabunny` is injected, never bundled — see [BUNDLE_STRATEGY.md](../../BUNDLE_STRATEGY.md).
+**Bundle size:** ~19 KiB gzipped for the editor layer; an app using the full SDK (`core` + `react` + `timeline` + `editor`) starts at ~64 KiB gzipped with the demuxer injected or omitted, and ~227 KiB if it calls `createDefaultDemuxerFactory()`, which pulls `mediabunny` (159 KiB) into the startup graph. Measured with code splitting — see [BUNDLE_STRATEGY.md](../../BUNDLE_STRATEGY.md).
 
 ---
 

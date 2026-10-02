@@ -69,7 +69,7 @@ you break one, the failure is silent or looks like an SDK bug.
 - Add these apps to the root `workspaces` globs, or point them at `packages/*` via
   `file:`/`workspace:`. Consuming the published tarball is the entire point of this directory.
 - Commit a `package-lock.json` here — they are gitignored so every clone resolves the newest
-  matching `^0.4.x`.
+  matching `^0.6.x` (the range the apps' `package.json` files declare).
 - Reach into `@elah/core` internals for something the `@elah/editor` barrel already re-exports.
 
 ## Patterns the SDK expects

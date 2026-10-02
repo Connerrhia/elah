@@ -43,8 +43,8 @@ Three invariants hold everywhere. Do not violate them:
 npm run build:packages   # build all packages (apps consume dist/ — see below)
 npm run test             # vitest across core, react, timeline, editor, cli, apps/web
 npm run typecheck        # tsc --noEmit across all workspaces
-npm run dev              # apps/web on :3000
-npm run lint:tokens      # check --elah-* design token usage
+npm run dev              # apps/web on :3001 (`next dev --port 3001`)
+npm run lint:tokens      # check --elah-* design token usage (raw colour literals in package components)
 npm run verify:examples  # build all three examples/ apps against the published npm packages
 ```
 
@@ -75,13 +75,15 @@ it can't find the specifier. Do not "fix" the literal in source; you would break
 ## Releases
 
 `@elah/core`, `@elah/react`, `@elah/timeline`, and `@elah/editor` are released **together
-and share one version**. `@elah/cli` versions independently.
+and share one version**. `@elah/cli` versions independently (it depends on `@elah/core`
+only, and has its own tag).
 
 To cut a release:
 
-1. Bump `version` in all four `package.json` files **and** the internal `@elah/*` dependency
-   ranges (react→core, timeline→core+react, editor→all three).
-2. `npm install --package-lock-only`.
+1. Bump `version` in the `package.json` of every package being released **and** the internal
+   `@elah/*` dependency ranges (react→core, timeline→core+react, editor→all three, cli→core).
+2. `npm install --package-lock-only` — **before tagging**, so the lockfile that gets tagged
+   already carries the new versions.
 3. `npm run build:packages`.
 4. Add an entry to `CHANGELOG.md` (Keep a Changelog format).
 5. Mirror it into `apps/web/config/changelog.ts` — the **single source of truth** for the
@@ -89,9 +91,33 @@ To cut a release:
    `currentVersion` derives from it.
 
 Release gate: `npm run build:packages` + `npm run test` + `npm run build --workspace=apps/web`
-must all exit 0.
+must all exit 0. After publishing, run `npm run verify:examples` (the only check that
+exercises the published tarballs).
 
-**Do not run `npm publish`.** Publishing is done manually by the maintainer.
+### Publishing (maintainer only)
+
+**Agents do not run `npm publish`.** Publishing is done manually by the maintainer, in
+this order, one package at a time:
+
+```
+@elah/core  →  @elah/react  →  @elah/timeline  →  @elah/editor  →  @elah/cli
+```
+
+Each package depends on the ones before it, so a later package published first would
+resolve a version that is not on the registry yet. Publish each with an explicit workspace
+and `--access public`:
+
+```bash
+npm publish --workspace=packages/core --access public
+# …then react, timeline, editor, cli, in that order
+```
+
+**Never use `npm publish --workspaces`**: it gives no control over order and no pause to
+check each package, and `@elah/cli` is released on its own version and schedule.
+
+Tag the release commit after the lockfile is committed: `v<version>` for the four
+lockstep packages (for 0.6.0, `v0.6.0`) and `cli-v<version>` for the CLI (for CLI 0.1.2,
+`cli-v0.1.2`).
 
 ## Conventions
 
@@ -110,9 +136,12 @@ must all exit 0.
 
 Adding or renaming an export means updating, in the same change:
 
-1. `packages/editor/src/index.ts` — the barrel most consumers import from.
-2. The relevant package `README.md`.
-3. `apps/web/app/docs/api/page.tsx` and any docs page showing it.
+1. `packages/editor/src/index.ts` — the barrel most consumers import from (and the barrel of
+   the package that owns the export: `packages/{core,react,timeline,cli}/src/index.ts`).
+2. The README of every package the export touches: `packages/core/README.md`,
+   `packages/react/README.md`, `packages/timeline/README.md`, `packages/editor/README.md`,
+   `packages/cli/README.md` (and the root `README.md` if it lists the feature).
+3. `apps/web/app/docs/api/page.tsx` (`/docs/api`) and any docs page showing it.
 4. `CHANGELOG.md` + `apps/web/config/changelog.ts`.
 5. `docs/ai/ELAH_FOR_AI_AGENTS.md` — the standalone agent guide duplicates the API surface
    by design, so it goes stale silently if you skip it.

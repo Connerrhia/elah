@@ -5,7 +5,7 @@ React timeline UI for the Elah video engine. Renders tracks, clips, ruler, and p
 A consumer of `@elah/core`. Owns no project state — all state lives in the core stores.
 
 [![npm](https://img.shields.io/npm/v/@elah/timeline)](https://www.npmjs.com/package/@elah/timeline)
-[![gzip size](https://img.shields.io/badge/gzip-12%20KiB-brightgreen)](../../BUNDLE_STRATEGY.md)
+[![gzip size](https://img.shields.io/badge/gzip-~15%20KiB-brightgreen)](../../BUNDLE_STRATEGY.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/elahlabs/elah/blob/main/LICENSE)
 
 ---
@@ -21,7 +21,7 @@ Peer dependencies: `react`, `react-dom` >= 18, `lucide-react` >= 0.400.0 (used d
 needs it). Engine/playback context (`EditorContext`, `useTimelineEngine`) comes from
 `@elah/react`, a runtime dependency pulled in automatically.
 
-**Bundle size:** ~12 KiB gzipped (61 KiB raw, `tsc` ESM output). UI layer only — project state lives in `@elah/core`.
+**Bundle size:** ~15 KiB gzipped, minified and tree-shaken (~21 KiB with `clsx` and `tailwind-merge`). UI layer only — project state lives in `@elah/core`.
 
 ---
 

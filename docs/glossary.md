@@ -6,7 +6,7 @@
 
 ### Active clip
 
-A clip that is "playing" at the current frame. Output of `resolveTimeline`. Comes in four flavors: `ActiveVideoClip`, `ActiveAudioClip`, `ActiveTextClip`, `ActiveImageClip`. See [`resolver/scene.ts`](../packages/editor/src/core/resolver/scene.ts).
+A clip that is "playing" at the current frame. Output of `resolveTimeline`. Comes in six flavors: `ActiveVideoClip`, `ActiveAudioClip`, `ActiveTextClip`, `ActiveImageClip`, `ActiveShapeClip`, `ActiveFreehandClip`. See [`resolver/scene.ts`](../packages/core/src/resolver/scene.ts).
 
 ### Asset
 
@@ -22,7 +22,7 @@ A `TimelineEngine.batch(recipe, description?)` transaction that groups multiple 
 
 ### Clip
 
-A single placed media segment on a track. Has `startFrame`, `durationFrames`, `sourceStartFrame`, `sourceDurationFrames`. Distinct from an **asset** (the underlying file). See [`types/index.ts`](../packages/editor/src/core/types/index.ts).
+A single placed segment on a track: video, audio, image, text, shape or freehand. Has `startFrame`, `durationFrames`, `sourceStartFrame`, `sourceDurationFrames`, and optional `speed`, `crop`, `cornerRadius` and `transform`. Distinct from an **asset** (the underlying file). See [`types/index.ts`](../packages/core/src/types/index.ts).
 
 ### Commit
 
@@ -54,19 +54,27 @@ The unit of time. Always an integer. `frame = seconds × fps`. The engine never 
 
 ### `FrameCache`
 
-LRU cache of decoded frames keyed by source frame number, with pivot-relative eviction. **Owns** every stored frame and is the only thing that closes it; `get()` returns a borrowed reference. On the real decode path it holds `ImageBitmap` copies. See [`media/video/FrameCache.ts`](../packages/editor/src/core/media/video/FrameCache.ts).
+Bounded cache of decoded frames keyed by source frame number, with pivot-relative eviction (by frame count and by an optional byte budget). **Owns** every stored frame and is the only thing that closes it; `get()` returns a borrowed reference. On the real decode path it holds `ImageBitmap` copies. See [`media/video/FrameCache.ts`](../packages/core/src/media/video/FrameCache.ts).
+
+### Holdover
+
+The last textured frame of a video clip that just left the scene, kept by `VideoLayer` so a direct cut to the next clip has something to draw until that clip's first frame is decoded. Dropped on a gap larger than a few frames or on a seek. See [`renderer/architecture.md` § 7](../packages/core/src/renderer/architecture.md).
 
 ### MediaLibrary
 
-The in-memory registry of imported `MediaAsset`s (`useMediaLibraryStore` in `core/assets/`). One asset → many clips. Not yet persisted; cleared on reload.
+The in-memory registry of imported `MediaAsset`s (`useMediaLibraryStore` in `core/assets/`). One asset → many clips. Not persisted by the engine: `snapshotMediaLibrary` / `hydrateMediaLibrary` let a host store and restore it, and `relinkProjectMedia` re-points clips at restored assets.
+
+### `MotionSpec`
+
+The far end of a text or shape clip's entry or exit ramp: opacity, offset, scale multiplier and rotation delta plus easing. The near end is always the clip's authored resting state. Carried by `TextAnimation.inMotion` / `outMotion`. See [`ARCHITECTURE.md` § 4](../ARCHITECTURE.md#animation-model).
 
 ### Project
 
-The whole timeline document: `fps`, `stage`, `tracks`, `clips`. Immutable; replaced wholesale on every commit.
+The whole timeline document: `fps`, `stage`, `tracks`, `clips`, `transitions`, `version`. Immutable; replaced wholesale on every commit. A stored copy is read back with `readProjectDocument`, which checks the `version` stamp (`PROJECT_VERSION`).
 
 ### `resolveTimeline`
 
-The pure function `(frame, project) → Scene`. The single bridge between data and rendering — consumed by both the live renderer and the export worker. See [`resolver/resolveTimeline.ts`](../packages/editor/src/core/resolver/resolveTimeline.ts).
+The pure function `(frame, project) → Scene`. The single bridge between data and rendering — consumed by both the live renderer and the export worker. See [`resolver/resolveTimeline.ts`](../packages/core/src/resolver/resolveTimeline.ts).
 
 ### Renderer
 
@@ -82,11 +90,11 @@ The three layers of state in the codebase. See [`ARCHITECTURE.md` § 2](../ARCHI
 
 ### Scene
 
-The output of `resolveTimeline`. A plain-data object listing every active clip at a given frame, with `sourceFrame`, `opacity`, `zIndex`, and optional `transform`. Renderers consume only this. See [`resolver/scene.ts`](../packages/editor/src/core/resolver/scene.ts).
+The output of `resolveTimeline`. A plain-data object listing every active clip at a given frame, with `sourceFrame`, `opacity`, `zIndex`, and optional `transform`, plus the project's `fps` and `stage` and any active transitions. Renderers consume only this. See [`resolver/scene.ts`](../packages/core/src/resolver/scene.ts).
 
 ### Solo
 
-A track flag that, when enabled on any track of a given kind, excludes all other tracks of that kind from the resolved scene. Image clips piggyback on video solo.
+A track flag that, when enabled on any track of a given kind (`video`, `audio` or `elements`), excludes all other tracks of that kind from the resolved scene. Image clips piggyback on video solo.
 
 ### Source frame
 
@@ -102,7 +110,7 @@ The output composition canvas — `Project.stage` (`width × height`). Default `
 
 ### `StreamingFrameProducer`
 
-The production `VideoFrameProvider`: push-based (`setPlayhead` + `getCurrent`), owns a `VideoDecoderManager` + `FrameCache`, feeds the decoder a forward lookahead window with hysteresis. See [`media/video/StreamingFrameProducer.ts`](../packages/editor/src/core/media/video/StreamingFrameProducer.ts).
+The production `VideoFrameProvider`: push-based (`setPlayhead` + `getCurrent`), owns a `VideoDecoderManager` + `FrameCache`, feeds the decoder a forward lookahead window tracked by a feed watermark. See [`media/video/StreamingFrameProducer.ts`](../packages/core/src/media/video/StreamingFrameProducer.ts).
 
 ### Subscriber storm
 
@@ -111,12 +119,12 @@ Pathological behavior where one state change triggers many downstream re-renders
 ### Timeline
 
 Two meanings, both used:
-1. The `<Timeline />` React component — the UI surface ([`timeline/Timeline.tsx`](../packages/editor/src/timeline/Timeline.tsx)).
+1. The `<Timeline />` React component — the UI surface ([`Timeline.tsx`](../packages/timeline/src/Timeline.tsx)).
 2. The conceptual data structure (tracks + clips ordered in time). Pedantically that's the `Project`.
 
 ### Track
 
-A horizontal lane in the timeline. Has a `kind` (`video` | `audio` | `text`) and an `order` (0 = topmost in UI). Holds clips. See [`types/index.ts`](../packages/editor/src/core/types/index.ts).
+A horizontal lane in the timeline. Has a `kind` (`video` | `audio` | `elements`; text, shape and freehand clips live on `elements` tracks) and an `order` (0 = topmost in UI). A project can have several video tracks; the topmost lane composites on top. `protected` tracks cannot be removed, and `pinned: 'bottom'` tracks stay below freely-added ones. Holds clips. See [`types/index.ts`](../packages/core/src/types/index.ts).
 
 ### Transform
 
@@ -124,11 +132,11 @@ The position/scale/rotation/anchor of a clip on the stage (`Clip.transform`). St
 
 ### Transition
 
-A descriptor for a crossfade / cut / wipe between adjacent clips. Reserved as `Scene.transitions: SceneTransition[]` but **not yet implemented** (the array is always empty).
+A `fade`, `slide` or `wipe` between two adjacent clips on a track (`Project.transitions`). While one is active, `Scene.transitions` carries an `ActiveTransition` with eased progress `t`; the preview draws it as a snapshot overlay and export draws the same snapshot. `slide` moves left only for `direction: 'left'`, `wipe` ignores direction, and `up` / `down` are typed but not implemented.
 
 ### Visitor
 
-A pure function that takes an Immer `Draft<Project>` and applies a single mutation type: `addClip`, `removeClip`, `updateClip`, `splitClip`, `cloneClip`, `removeTrack`, `updateTrack`. Called by `TimelineEngine` inside `commit`. See [`core/visitor/`](../packages/editor/src/core/visitor/).
+A pure function that takes an Immer `Draft<Project>` and applies a single mutation type: `addClip`, `removeClip`, `updateClip`, `splitClip`, `cloneClip`, `removeTrack`, `updateTrack`. Called by `TimelineEngine` inside `commit`. See [`core/visitor/`](../packages/core/src/visitor/).
 
 ### Zustand mirror
 
@@ -136,4 +144,4 @@ A Ring 1 store (`useTracksStore`, `usePlaybackStore`) that mirrors engine state 
 
 ### z-index
 
-In the resolver: `(maxOrder - track.order) * 1000` (text tracks get a fixed high value). Higher zIndex = closer to viewer = renders on top. The `* 1000` reserves space for sub-layer offsets.
+In the resolver: `(maxOrder - track.order) * 1000`, plus a large fixed offset (`ELEMENTS_ZINDEX_BASE`) on `elements` tracks so text, shape and freehand clips sit above all video. Higher zIndex = closer to viewer = renders on top. The `* 1000` reserves space for sub-layer offsets.

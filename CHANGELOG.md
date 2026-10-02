@@ -143,6 +143,13 @@ defects found while verifying it. `@elah/cli` 0.1.2 ships alongside (below).
 
 ### Documentation
 
+- **Bundle sizes re-measured and the method fixed.** `BUNDLE_STRATEGY.md` now quotes
+  what a browser downloads (esbuild, minified, gzipped, with code splitting) instead
+  of the raw `tsc` output the old badges were based on: ~64 KiB at startup for the
+  full SDK with the demuxer injected, ~11 KiB engine-only, and ~227 KiB on the quick-start
+  path because `createDefaultDemuxerFactory` imports `mediabunny` statically. Reproduce
+  with `node scripts/measure-bundle.mjs`.
+
 - The package READMEs, `/docs/api`, and `docs/ai/ELAH_FOR_AI_AGENTS.md` now cover
   the API added above.
 
