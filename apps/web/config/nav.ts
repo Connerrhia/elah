@@ -29,9 +29,7 @@ export const navLinks: NavLink[] = [
   { label: 'Docs', href: '/docs' },
   { label: 'Examples', href: '/examples' },
   { label: 'Playgrounds', href: '/playgrounds' },
-  { label: 'Showcase', href: '/showcase' },
   { label: 'Blog', href: '/blog' },
-  { label: 'Pricing', href: '/pricing' },
 ]
 
 export const footerColumns: FooterColumn[] = [
@@ -41,10 +39,8 @@ export const footerColumns: FooterColumn[] = [
       { label: 'Docs', href: '/docs' },
       { label: 'Examples', href: '/examples' },
       { label: 'Playgrounds', href: '/playgrounds' },
-      { label: 'Showcase', href: '/showcase' },
       { label: 'Blog', href: '/blog' },
       { label: 'Changelog', href: '/changelog' },
-      { label: 'Pricing', href: '/pricing' },
     ],
   },
   {

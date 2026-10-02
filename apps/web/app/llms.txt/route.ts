@@ -42,8 +42,6 @@ const RESOURCES: DocLink[] = [
   { title: 'Examples', path: '/examples', description: 'Focused code samples for common tasks.' },
   { title: 'Blog', path: '/blog', description: 'Engineering notes and release posts.' },
   { title: 'Changelog', path: '/changelog', description: 'Release history for @elah/core, @elah/react, @elah/timeline, @elah/editor, and @elah/cli.' },
-  { title: 'Pricing & licensing', path: '/pricing', description: 'Apache-2.0: free to build on, embed, self-host, and ship commercially; paid support and services available.' },
-  { title: 'Showcase', path: '/showcase', description: 'Projects and tools built with elah.' },
 ]
 
 // Derived from the blog source of truth so new posts appear automatically.

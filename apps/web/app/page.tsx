@@ -9,7 +9,6 @@ import { StatsStrip } from '@/components/landing/StatsStrip'
 import { getSiteStats, toDisplay } from '@/lib/stats'
 import { LandingLibraries } from '@/components/landing/LandingLibraries'
 import { AgentsBand } from '@/components/landing/AgentsBand'
-import { ShowcaseTeaser } from '@/components/landing/ShowcaseTeaser'
 import { LandingPlaygrounds } from '@/components/landing/LandingPlaygrounds'
 import { LandingFooter } from '@/components/landing/LandingFooter'
 
@@ -48,7 +47,6 @@ export default async function HomePage() {
         <LandingPlaygrounds />
         <Integration />
         <AgentsBand />
-        <ShowcaseTeaser />
         <Faq />
         <Cta />
       </main>
