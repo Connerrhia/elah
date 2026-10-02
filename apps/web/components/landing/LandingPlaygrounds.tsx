@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { trackPlaygroundLaunch } from '@/lib/analytics'
-import { Icon } from './Icon'
+import { ArrowUpRight } from 'lucide-react'
 import { CardHeader, type CardHeaderKind } from './CardHeader'
 import { playgrounds, type PlaygroundEntry } from './landingData'
 import { Spotlight } from './motion/Spotlight'
@@ -97,7 +97,7 @@ export function LandingPlaygrounds() {
                   }}
                 >
                   Launch Playground
-                  <Icon name="north_east" size={15} />
+                  <ArrowUpRight size={15}  />
                 </Link>
               </div>
             </Spotlight>

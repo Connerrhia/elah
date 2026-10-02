@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Quick Start',
@@ -22,22 +23,20 @@ export default function GettingStartedPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Getting Started</div>
-          <h1
-            className="text-3xl font-semibold tracking-tight text-on-surface"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-          >
-            Quick Start
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            Three levels of integration — timeline only, timeline + preview, and the full editor. Start from whichever level matches your use case.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          eyebrow="Getting Started"
+          title="Quick Start"
+          lede={
+            <>
+              Three levels of integration — timeline only, timeline + preview, and the full editor. Start from whichever level matches your use case.
+            </>
+          }
+        />
 
         {/* Timeline only */}
         <section className="mb-10">
-          <h2 id="timeline-only" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="timeline-only" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Level 1: Timeline Only
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -118,7 +117,7 @@ export default function TimelineOnly() {
 
         {/* Preview component */}
         <section className="mb-10">
-          <h2 id="preview-component" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="preview-component" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Level 2: Timeline + Preview
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -180,7 +179,7 @@ export default function App() {
 
         {/* Full editor */}
         <section className="mb-10">
-          <h2 id="full-editor" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="full-editor" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Level 3: Full Editor
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -294,7 +293,7 @@ export default function FullEditor() {
 
         {/* Keyboard shortcuts */}
         <section className="mb-10">
-          <h2 id="keyboard-shortcuts" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="keyboard-shortcuts" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Keyboard Shortcuts
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -327,7 +326,7 @@ export default function FullEditor() {
 
         {/* Adding clips programmatically */}
         <section className="mb-10">
-          <h2 id="adding-clips" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="adding-clips" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Adding Clips Programmatically
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -410,6 +409,35 @@ export function AddClipButton() {
   engine.addClip({ trackId, type: 'video', ...videoOpts })
   engine.addClip({ trackId: audioTrackId, type: 'audio', ...audioOpts })
 }, 'Add video + audio')`}
+            />
+          </div>
+          <div className="mt-4 rounded-md border border-outline-variant bg-surface-low p-4">
+            <div className="label-mono mb-1 text-2xs text-on-surface-variant opacity-90">Remote media: place it now, size it later</div>
+            <p className="mb-3 text-xs leading-relaxed text-on-surface-variant">
+              A remote URL does not have a duration until it has been probed. <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">beginImportUrl</code> registers it as a pending asset immediately, so you can insert a clip with a fallback length right away, then call <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">growClipToAssetDuration</code> from <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">@elah/timeline</code> once the real duration is known. The clip shows a loading shimmer in between. Full walkthrough on <Link href="/docs/clips#growing-clips" className="text-primary hover:underline">Clips &amp; Tracks</Link>.
+            </p>
+            <CodeBlock
+              language="tsx"
+              code={`import {
+  beginImportUrl,
+  insertMediaAsset,
+  growClipToAssetDuration,
+  mediaLibraryStore,
+} from '@elah/editor'
+
+const asset = await beginImportUrl(url)               // pending, placeholder duration
+const result = await insertMediaAsset(engine, asset.id, { videoOnly: true })
+if (!result.ok) return
+
+const clipId = result.clipIds[0]
+const fallbackFrames = engine.findClip(clipId)!.clip.durationFrames
+
+const unsubscribe = mediaLibraryStore.subscribe((state) => {
+  const ready = state.assets[asset.id]
+  if (ready?.status !== 'ready') return
+  unsubscribe()
+  growClipToAssetDuration(engine, clipId, fallbackFrames, ready.durationSec)
+})`}
             />
           </div>
         </section>

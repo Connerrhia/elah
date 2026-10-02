@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'API Reference',
   description:
-    'API reference for @elah/core, @elah/timeline, and @elah/editor: TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, hooks, and types.',
+    'API reference for @elah/core, @elah/react, @elah/timeline, and @elah/editor: TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, hooks, and types.',
   alternates: { canonical: '/docs/api' },
 }
 
@@ -24,7 +26,6 @@ function Section({ id, title, children }: { id: string; title: string; children:
       <h2
         id={id}
         className="mb-5 border-b border-outline-variant pb-3 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20"
-        style={{ fontFamily: 'var(--font-inter), sans-serif' }}
       >
         {title}
       </h2>
@@ -69,15 +70,16 @@ export default function ApiPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Reference</div>
-          <h1 className="text-3xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-            API Reference
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            Complete reference for TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, React hooks, and TypeScript types.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          eyebrow="Reference"
+          title="API Reference"
+          lede={
+            <>
+              Complete reference for TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, React hooks, and TypeScript types.
+            </>
+          }
+        />
 
         {/* TimelineEngine */}
         <Section id="timeline-engine" title="TimelineEngine">
@@ -289,7 +291,7 @@ renderer.dispose()               // cleanup on unmount`}
         {/* Hooks */}
         <Section id="hooks" title="Hooks">
           <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
-            All hooks below live in <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> and are re-exported by <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/editor</code> — install <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> directly if you&apos;re building custom UI on <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/core</code> without the full editor SDK.
+            All hooks below live in <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> and are re-exported by <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/editor</code> — install <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> directly if you&apos;re building custom UI on <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/core</code> without the full editor SDK. The <Link href="/docs/react" className="text-primary hover:underline">@elah/react page</Link> covers the context, the store hooks, the audio hooks and using the same stores without React in detail.
           </p>
           <div className="space-y-4">
             {[
@@ -355,9 +357,9 @@ renderer.dispose()               // cleanup on unmount`}
               },
             ].map(({ hook, returns, desc }) => (
               <div key={hook} className="rounded-md border border-outline-variant bg-surface-low p-4">
-                <div className="mb-1.5 flex items-start gap-3">
+                <div className="mb-1.5 flex flex-wrap items-start gap-x-3 gap-y-1.5">
                   <code className="font-mono text-sm font-medium text-on-surface">{hook}</code>
-                  <span className="mt-0.5 rounded bg-surface-container px-2 py-0.5 font-mono text-xs text-on-surface-variant">
+                  <span className="mt-0.5 min-w-0 max-w-full break-words rounded bg-surface-container px-2 py-0.5 font-mono text-xs text-on-surface-variant">
                     → {returns}
                   </span>
                 </div>
@@ -369,6 +371,9 @@ renderer.dispose()               // cleanup on unmount`}
 
         {/* Types */}
         <Section id="types" title="Types">
+          <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
+            The clip and track fields added in 0.6.0 (<code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Clip.speed</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Clip.crop</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Clip.cornerRadius</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Track.protected</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Track.pinned</code>) are explained on <Link href="/docs/clips" className="text-primary hover:underline">Clips &amp; Tracks</Link>. Layered text motion is on <Link href="/docs/text-templates-and-motion" className="text-primary hover:underline">Text Templates &amp; Motion</Link>.
+          </p>
           <CodeBlock
             language="typescript"
             filename="types.ts"
@@ -441,6 +446,8 @@ interface Transform {
   x: number        // 0..1, normalized to stage width
   y: number        // 0..1, normalized to stage height
   scale: number    // 1 = native size
+  scaleX?: number  // extra horizontal stretch on top of scale; omitted = 1
+  scaleY?: number  // extra vertical stretch on top of scale; omitted = 1
   rotation: number // radians, positive = clockwise
   anchor: { x: number; y: number } // 0..1 within the clip box
 }

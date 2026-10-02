@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { useEffect, useRef, type CSSProperties } from 'react'
-import { Icon } from './Icon'
+import { ChevronDown, Code2, Copy, EllipsisVertical, Film, ImageIcon, Maximize, Minus, Music, Plus, Play, Redo2, RectangleHorizontal, Scissors, Search, SlidersHorizontal, Sparkles, Square, Trash2, Type, Undo2, type LucideIcon } from 'lucide-react'
 import { tracks, type TrackClip } from './landingData'
 import { Tilt } from './motion/Tilt'
 import { useInView } from './motion/useInView'
@@ -13,12 +13,15 @@ import { useInView } from './motion/useInView'
 
 const MONO = "var(--font-geist-mono), 'Geist Mono', monospace"
 
-const railItems = [
-  { icon: 'movie', label: 'Videos', active: true, color: undefined as string | undefined },
-  { icon: 'image', label: 'Photos', active: false, color: '#9ca3af' },
-  { icon: 'auto_awesome', label: 'Agentic AI', active: false, color: '#ff6b6b' },
-  { icon: 'music_note', label: 'Audio', active: false, color: '#9ca3af' },
-  { icon: 'title', label: 'Elements', active: false, color: '#9ca3af' },
+const railItems: { icon: LucideIcon; label: string; active: boolean; color: string | undefined }[] = [
+  { icon: Film, label: 'Videos', active: true, color: undefined as string | undefined },
+  { icon: ImageIcon, label: 'Photos', active: false, color: '#9ca3af' },
+  // The one highlighted item in the rail. It was literally #ff6b6b, which is
+  // the editor's --elah-danger-text — a destructive-action red standing in for
+  // "look here", so the mockup's only coloured icon read as an error.
+  { icon: Sparkles, label: 'Agentic AI', active: false, color: 'var(--accent)' },
+  { icon: Music, label: 'Audio', active: false, color: '#9ca3af' },
+  { icon: Type, label: 'Elements', active: false, color: '#9ca3af' },
 ]
 
 const thumbnails = [
@@ -194,9 +197,9 @@ function DesktopMockup() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          {['undo', 'redo'].map((n) => (
+          {[Undo2, Redo2].map((Glyph, i) => (
             <span
-              key={n}
+              key={i}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -209,7 +212,7 @@ function DesktopMockup() {
                 color: '#9ca3af',
               }}
             >
-              <Icon name={n} size={15} />
+              <Glyph size={15} />
             </span>
           ))}
         </div>
@@ -227,7 +230,7 @@ function DesktopMockup() {
               fontSize: 11,
             }}
           >
-            <Icon name="code" size={14} />
+            <Code2 size={14}  />
             Code
           </span>
           <span
@@ -296,7 +299,7 @@ function DesktopMockup() {
                   color: r.active ? '#fff' : undefined,
                 }}
               >
-                <Icon name={r.icon} size={17} />
+                <r.icon size={17} />
               </span>
               <span style={{ fontSize: 9, fontWeight: r.active ? 600 : undefined }}>{r.label}</span>
             </span>
@@ -337,7 +340,7 @@ function DesktopMockup() {
                 padding: '3px 8px',
               }}
             >
-              <Icon name="add" size={12} weight={500} />
+              <Plus size={12}  />
               Upload
             </span>
           </div>
@@ -357,12 +360,12 @@ function DesktopMockup() {
                   fontSize: 11,
                 }}
               >
-                <Icon name="search" size={13} />
+                <Search size={13}  />
                 Search videos…
               </span>
               <span style={{ fontSize: 11, color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
                 Pixabay
-                <Icon name="expand_more" size={14} />
+                <ChevronDown size={14}  />
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
@@ -487,17 +490,17 @@ function DesktopMockup() {
                   color: '#000',
                 }}
               >
-                <Icon name="play_arrow" size={17} fill={1} />
+                <Play size={17} fill="currentColor" />
               </span>
-              <Icon name="stop" size={13} fill={1} color="#9ca3af" />
+              <Square size={13} color="#9ca3af" fill="#9ca3af" />
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', color: '#9ca3af' }}>
-              <Icon name="fullscreen" size={14} />
+              <Maximize size={14}  />
               <span style={{ display: 'flex', alignItems: 'center', gap: 2, border: '1px solid #232938', borderRadius: 5, padding: '2px 7px', fontSize: 10.5 }}>
                 Fit
-                <Icon name="expand_more" size={12} />
+                <ChevronDown size={12}  />
               </span>
-              <Icon name="crop_landscape" size={14} />
+              <RectangleHorizontal size={14}  />
             </span>
           </div>
         </div>
@@ -566,7 +569,7 @@ function DesktopMockup() {
               }}
             >
               Blend · Normal
-              <Icon name="expand_more" size={12} />
+              <ChevronDown size={12}  />
             </span>
           </div>
         </div>
@@ -587,26 +590,26 @@ function DesktopMockup() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="add" size={14} />
+            <Plus size={14}  />
             Add Track
-            <Icon name="expand_more" size={12} />
+            <ChevronDown size={12}  />
           </span>
           <span style={{ width: 1, height: 15, background: '#232938' }} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="content_cut" size={13} />
+            <Scissors size={13}  />
             Split
           </span>
-          <Icon name="content_copy" size={13} />
-          <Icon name="delete" size={13} />
+          <Copy size={13}  />
+          <Trash2 size={13}  />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11 }}>
-          <Icon name="remove" size={14} />
+          <Minus size={14}  />
           <span style={{ position: 'relative', width: 80, height: 2, background: '#232938', borderRadius: 2, display: 'block' }}>
             <span style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translateY(-50%)', width: 9, height: 9, borderRadius: '50%', background: '#9ca3af' }} />
           </span>
-          <Icon name="add" size={14} />
+          <Plus size={14}  />
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="fullscreen" size={13} />
+            <Maximize size={13}  />
             Fit
           </span>
         </div>
@@ -736,13 +739,13 @@ function MobileMockup() {
         >
           <span style={{ width: 12, height: 7, borderRadius: 2, background: 'currentColor' }} />
           16:9
-          <Icon name="expand_more" size={12} />
+          <ChevronDown size={12}  />
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ background: '#00c2ff', color: '#04202a', fontSize: 10, fontWeight: 600, borderRadius: 5, padding: '3px 8px' }}>
             ⬇ Export
           </span>
-          <Icon name="more_vert" size={16} color="#9ca3af" />
+          <EllipsisVertical size={16} color="#9ca3af"  />
         </span>
       </div>
 
@@ -752,9 +755,9 @@ function MobileMockup() {
           <span style={{ fontWeight: 700, fontSize: 15, color: '#fff', whiteSpace: 'nowrap' }}>Launch Day</span>
           <CornerHandles size={6} offset={-3.5} />
         </div>
-        {(['tune', 'fullscreen'] as const).map((n, i) => (
+        {[SlidersHorizontal, Maximize].map((Glyph, i) => (
           <span
-            key={n}
+            key={i}
             style={{
               position: 'absolute',
               bottom: 8,
@@ -771,7 +774,7 @@ function MobileMockup() {
               color: '#fff',
             }}
           >
-            <Icon name={n} size={13} />
+            <Glyph size={13} />
           </span>
         ))}
       </div>
@@ -794,13 +797,13 @@ function MobileMockup() {
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 27, height: 27, borderRadius: '50%', background: '#fff', color: '#000' }}>
-            <Icon name="play_arrow" size={15} fill={1} />
+            <Play size={15} fill="currentColor" />
           </span>
-          <Icon name="stop" size={12} fill={1} color="#9ca3af" />
+          <Square size={12} color="#9ca3af" fill="#9ca3af" />
         </span>
         <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, color: '#9ca3af' }}>
-          <Icon name="undo" size={14} />
-          <Icon name="redo" size={14} />
+          <Undo2 size={14}  />
+          <Redo2 size={14}  />
         </span>
       </div>
 
@@ -819,18 +822,18 @@ function MobileMockup() {
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{ display: 'flex', alignItems: 'center' }}>
-            <Icon name="add" size={14} />
-            <Icon name="expand_more" size={11} />
+            <Plus size={14}  />
+            <ChevronDown size={11}  />
           </span>
           <span style={{ width: 1, height: 13, background: '#232938' }} />
-          <Icon name="content_cut" size={13} />
-          <Icon name="content_copy" size={13} />
-          <Icon name="delete" size={13} />
+          <Scissors size={13}  />
+          <Copy size={13}  />
+          <Trash2 size={13}  />
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Icon name="remove" size={14} />
-          <Icon name="add" size={14} />
-          <Icon name="fullscreen" size={13} />
+          <Minus size={14}  />
+          <Plus size={14}  />
+          <Maximize size={13}  />
         </span>
       </div>
 
@@ -890,7 +893,7 @@ function MobileMockup() {
         {railItems.map((r) => (
           <span key={r.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: r.color ?? '#9ca3af' }}>
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 10, background: '#171d2b' }}>
-              <Icon name={r.icon} size={15} />
+              <r.icon size={15} />
             </span>
             <span style={{ fontSize: 8.5 }}>{r.label}</span>
           </span>

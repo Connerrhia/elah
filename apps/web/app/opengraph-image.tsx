@@ -16,7 +16,7 @@ export default function OpengraphImage() {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          backgroundColor: '#111010',
+          backgroundColor: '#06070a',
           padding: 72,
         }}
       >
@@ -26,10 +26,10 @@ export default function OpengraphImage() {
               width: 14,
               height: 14,
               borderRadius: 3,
-              backgroundColor: '#fcf9f8',
+              backgroundColor: '#f3f4f6',
             }}
           />
-          <div style={{ fontSize: 28, color: '#9b9391', letterSpacing: 4 }}>
+          <div style={{ fontSize: 28, color: '#9ca3af', letterSpacing: 4 }}>
             BROWSER-NATIVE VIDEO INFRASTRUCTURE
           </div>
         </div>
@@ -39,7 +39,7 @@ export default function OpengraphImage() {
             style={{
               fontSize: 148,
               fontWeight: 700,
-              color: '#fcf9f8',
+              color: '#f3f4f6',
               letterSpacing: -6,
               lineHeight: 1,
             }}
@@ -50,7 +50,7 @@ export default function OpengraphImage() {
             style={{
               marginTop: 28,
               fontSize: 38,
-              color: '#c9c3c1',
+              color: '#c9ced8',
               lineHeight: 1.35,
               maxWidth: 900,
             }}
@@ -65,12 +65,12 @@ export default function OpengraphImage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            borderTop: '1px solid #312d2d',
+            borderTop: '1px solid #232938',
             paddingTop: 32,
           }}
         >
-          <div style={{ fontSize: 28, color: '#9b9391' }}>elah.dev</div>
-          <div style={{ fontSize: 28, color: '#9b9391' }}>
+          <div style={{ fontSize: 28, color: '#9ca3af' }}>elah.dev</div>
+          <div style={{ fontSize: 28, color: '#9ca3af' }}>
             npm install @elah/editor
           </div>
         </div>

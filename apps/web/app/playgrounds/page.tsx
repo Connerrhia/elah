@@ -3,6 +3,7 @@ import { Navbar } from '@/components/marketing/Navbar'
 import { Footer } from '@/components/marketing/Footer'
 import { PlaygroundCard } from '@/components/marketing/PlaygroundCard'
 import { Terminal } from 'lucide-react'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Playgrounds',
@@ -68,22 +69,16 @@ export default function PlaygroundsPage() {
 
       <main className="flex-1">
         {/* Header */}
-        <div className="border-b border-outline-variant bg-surface">
-          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-            <div className="label-mono mb-3 text-2xs text-on-surface-variant opacity-90">
-              Interactive
-            </div>
-            <h1
-              className="text-3xl font-semibold tracking-tight text-on-surface md:text-4xl"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-            >
-              Playgrounds
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-on-surface-variant">
+        <PageHeader
+          eyebrow="Interactive"
+          title="Playgrounds"
+          lede={
+            <>
               Each playground is a live deployment of the elah SDK. Launch one to explore the editor, test your integration, or demo the capabilities.
-            </p>
-
-            <div className="mt-6 inline-flex items-start gap-3 rounded-md border border-outline-variant bg-surface-low p-4">
+            </>
+          }
+        >
+          <div className="mt-6 inline-flex items-start gap-3 rounded-md border border-outline-variant bg-surface-low p-4">
               <Terminal className="mt-0.5 h-4 w-4 shrink-0 text-on-surface-variant" />
               <div>
                 <div className="text-sm font-medium text-on-surface">Running locally?</div>
@@ -94,8 +89,7 @@ export default function PlaygroundsPage() {
                 </p>
               </div>
             </div>
-          </div>
-        </div>
+        </PageHeader>
 
         {/* Cards */}
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">

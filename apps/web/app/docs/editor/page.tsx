@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Editor',
   description:
-    'The @elah/editor SDK: EditorProvider, Preview, AssetPanel, interactive transforms, text overlays, transitions, and stage aspect ratio.',
+    'The @elah/editor SDK: EditorProvider, Preview, AssetPanel, interactive transforms with resize handles and crop, text overlays, fade, slide and wipe transitions, and stage aspect ratio.',
   alternates: { canonical: '/docs/editor' },
 }
 
@@ -23,19 +25,20 @@ export default function EditorPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Editor</div>
-          <h1 className="text-3xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-            Editor
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            EditorProvider, Preview, AssetPanel, transform overlays, text editing, and the transition system.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          eyebrow="Editor"
+          title="Editor"
+          lede={
+            <>
+              EditorProvider, Preview, AssetPanel, transform overlays, text editing, and the transition system.
+            </>
+          }
+        />
 
         {/* EditorProvider */}
         <section className="mb-10">
-          <h2 id="editor-provider" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="editor-provider" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             EditorProvider
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -90,7 +93,7 @@ function App() {
 
         {/* Preview */}
         <section className="mb-10">
-          <h2 id="preview" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="preview" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Preview
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -133,7 +136,7 @@ function MyPreview() {
 
         {/* AssetPanel */}
         <section className="mb-10">
-          <h2 id="asset-panel" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="asset-panel" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             AssetPanel
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -172,11 +175,11 @@ function CustomLibrary() {
 
         {/* Transforms */}
         <section className="mb-10">
-          <h2 id="transforms" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="transforms" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Transforms
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
-            Every clip has an optional <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">transform</code> property. The <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">MediaTransformOverlay</code> provides interactive drag-move and corner-drag uniform scale for video and image clips:
+            Every clip has an optional <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">transform</code> property. The <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">MediaTransformOverlay</code> is the interactive surface for video and image clips: click to select, drag to move, eight resize handles, and a Crop mode. It writes its result back to the engine as a <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">transform</code> (or a <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">crop</code>), so there is one renderer and one source of truth.
           </p>
           <CodeBlock
             language="typescript"
@@ -184,6 +187,8 @@ function CustomLibrary() {
   x: number        // position, normalized 0..1 of stage width
   y: number        // position, normalized 0..1 of stage height
   scale: number    // uniform scale factor (1 = native size)
+  scaleX?: number  // extra horizontal stretch on top of scale; omitted = 1
+  scaleY?: number  // extra vertical stretch on top of scale; omitted = 1
   rotation: number // radians, positive = clockwise
   anchor: { x: number; y: number } // 0..1 within the clip's own box
 }
@@ -197,21 +202,35 @@ engine.updateClip(clipId, trackId, {
 // GpuRenderer: applies to WebGL2 textured quad
 // ExportWorker: applies via resolveDrawRect() placement math`}
           />
+          <ul className="mt-4 mb-4 list-disc space-y-2 pl-5 text-sm leading-relaxed text-on-surface-variant">
+            <li>
+              <strong className="text-on-surface font-medium">Eight resize handles</strong>: four corners and four edges. Dragging a handle scales the clip on that axis (<code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">scaleX</code> and <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">scaleY</code>), so a non-uniform stretch is the default. Hold <kbd className="rounded border border-outline-variant bg-surface-container px-1.5 py-0.5 font-mono text-2xs">Shift</kbd> to keep the aspect ratio. The opposite corner or edge stays fixed on screen while you drag.
+            </li>
+            <li>
+              <strong className="text-on-surface font-medium">Crop mode.</strong> A small Resize / Crop toggle floats above the selection box. In Crop mode the same eight handles resize the clip&apos;s <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">crop</code> window instead of its scale, and dragging inside the box pans the source underneath a fixed crop window. A fresh selection always starts in Resize. See <Link href="/docs/clips#crop" className="text-primary hover:underline">Clips &amp; Tracks</Link>.
+            </li>
+            <li>
+              <strong className="text-on-surface font-medium">One undo step per gesture.</strong> Move, resize and crop all write through the same preview-then-commit protocol, so each drag is a single undo entry, and preview and export honour the result identically.
+            </li>
+            <li>
+              <strong className="text-on-surface font-medium">A clip with no transform</strong> is drawn contained. On the first gesture the overlay bakes the contain-equivalent transform (<code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">transformFromContainRect</code>) as the baseline, so grabbing a clip never moves it.
+            </li>
+          </ul>
           <div className="mt-4 rounded-md border border-outline-variant bg-surface-low p-4">
-            <div className="label-mono mb-1 text-2xs text-on-surface-variant opacity-90">Status</div>
+            <div className="label-mono mb-1 text-2xs text-on-surface-variant opacity-90">Rotation</div>
             <p className="text-xs leading-relaxed text-on-surface-variant">
-              Move and uniform scale are fully interactive. Rotation handle is partial — <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">transform.rotation</code> flows through both renderers but the interactive drag handle is not yet built.
+              <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">transform.rotation</code> flows through both renderers, and the media selection box tilts with the clip. <strong className="text-on-surface font-medium">Text clips have a rotate knob</strong> above the box (drag it; Shift snaps to 15 degree steps). <strong className="text-on-surface font-medium">Media clips do not have a rotate handle yet</strong>: set <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">rotation</code> on the transform through the engine, as above.
             </p>
           </div>
         </section>
 
         {/* Text overlays */}
         <section className="mb-10">
-          <h2 id="text-overlays" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="text-overlays" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Text Overlays
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
-            Text clips are rendered via a 2D-canvas-to-texture pipeline (GPU <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">TextLayer</code>). An interactive overlay (<code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">TextOverlay</code>) handles drag, resize (re-rasterized to stay crisp), and inline-edit.
+            Text clips are rendered via a 2D-canvas-to-texture pipeline (GPU <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">TextLayer</code>). An interactive overlay (<code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">TextOverlay</code>) handles drag, resize (re-rasterized to stay crisp), rotation by a knob above the box, and double-click inline-edit.
           </p>
           <CodeBlock
             language="tsx"
@@ -246,28 +265,47 @@ engine.updateClip(clipId, textTrack.id, {
   textAnimation: { in: 'fade', out: 'fade', durationFrames: 10 },
 })`}
           />
+          <p className="mt-4 text-sm leading-relaxed text-on-surface-variant">
+            One end of an animation can also drive several channels at once with a layered <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">MotionSpec</code>, and 14 built-in text templates bundle a look with its motion. Applying a template is one undoable <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">engine.updateClip</code> call. See <Link href="/docs/text-templates-and-motion" className="text-primary hover:underline">Text Templates &amp; Motion</Link>.
+          </p>
         </section>
 
         {/* Transitions */}
         <section className="mb-10">
-          <h2 id="transitions" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="transitions" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Transitions
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
-            Transitions use a snapshot-overlay architecture. The resolver sets <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">fromClip.opacity</code> and <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">toClip.opacity</code>; <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">TransitionOverlay</code> fades a frozen canvas snapshot via CSS; export mirrors with <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">globalAlpha</code>.
+            Transitions use a snapshot-overlay architecture. <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">TransitionOverlay</code> captures a frozen snapshot of the outgoing clip and animates it away over the incoming clip with CSS, while the GPU renders only the incoming clip. Export mirrors the same three modes in the 2D canvas API. There are three kinds, and all three are implemented in preview and export:
           </p>
+          <div className="mb-4 overflow-hidden rounded-md border border-outline-variant">
+            {[
+              ['fade', 'The outgoing snapshot fades out: opacity 1 to 0 (export: globalAlpha).'],
+              ['slide', 'The outgoing snapshot slides horizontally off the stage. direction: \'left\' slides it left; any other direction value slides it right. Up and down are not implemented.'],
+              ['wipe', 'The outgoing snapshot is clipped from the right edge, revealing the incoming clip. It is a horizontal wipe and ignores direction.'],
+            ].map(([kind, desc], i) => (
+              <div
+                key={kind}
+                className={`flex flex-col gap-1 border-b border-outline-variant p-3 last:border-0 sm:flex-row sm:items-start sm:gap-4 ${i % 2 === 0 ? 'bg-surface-low' : 'bg-surface-lowest'}`}
+              >
+                <code className="font-mono text-xs font-medium text-on-surface sm:w-16 sm:shrink-0">{kind}</code>
+                <div className="text-xs leading-relaxed text-on-surface-variant">{desc}</div>
+              </div>
+            ))}
+          </div>
           <CodeBlock
             language="tsx"
-            code={`// Add a fade transition between two adjacent clips on the same track.
+            code={`// Add a transition between two adjacent clips on the same track.
 // trackId is required; returns the created Transition (or null if the
 // clips aren't found on that track).
 engine.addTransition({
   fromClipId: clip1.id,
   toClipId: clip2.id,
   trackId: track.id,
-  kind: 'fade',           // 'fade' | 'slide' (partial) | 'wipe' (partial)
+  kind: 'fade',           // 'fade' | 'slide' | 'wipe'
   durationFrames: 15,
   easing: 'ease-out',     // 'linear' | 'ease-in' | 'ease-out'
+  direction: 'left',      // optional: 'left' | 'right' | 'up' | 'down' (slide uses left vs. not-left)
 })
 
 // Read transitions
@@ -280,7 +318,7 @@ engine.removeTransition(transitionId)`}
 
         {/* Stage aspect */}
         <section className="mb-10">
-          <h2 id="stage-aspect" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="stage-aspect" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Stage / Aspect Ratio
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">

@@ -87,8 +87,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fcf9f8' },
-    { media: '(prefers-color-scheme: dark)', color: '#111010' },
+    { media: '(prefers-color-scheme: light)', color: '#06070a' },
+    { media: '(prefers-color-scheme: dark)', color: '#06070a' },
   ],
 }
 
@@ -144,18 +144,6 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <script dangerouslySetInnerHTML={{ __html: installPromptScript }} />
-        {/* Material Symbols icon font — used by the landing-v2 editor mockups
-            and section chrome. Variable axes requested so weights/fill match. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
-        />
         {/* Plain <link> rather than metadata alternates.types: pages that set
             their own `alternates` (canonicals) would replace it entirely. */}
         <link

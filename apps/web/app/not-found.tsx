@@ -17,7 +17,6 @@ export default function NotFound() {
           <div className="label-mono mb-4 text-2xs text-on-surface-variant opacity-90">404</div>
           <h1
             className="text-3xl font-semibold tracking-tight text-on-surface"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
           >
             Page not found
           </h1>

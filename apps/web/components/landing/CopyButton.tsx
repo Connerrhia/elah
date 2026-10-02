@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import posthog from 'posthog-js'
-import { Icon } from './Icon'
+import { Check, Copy } from 'lucide-react'
 
 /**
  * Copies a snippet and reports it with the same event the hero install cards
@@ -55,7 +55,7 @@ export function CopyButton({ text, label = 'Copy snippet' }: { text: string; lab
         transition={{ type: 'spring', stiffness: 520, damping: 14 }}
         style={{ display: 'inline-flex' }}
       >
-        <Icon name={copied ? 'check' : 'content_copy'} size={14} color={copied ? 'var(--accent)' : 'var(--muted)'} />
+        {copied ? <Check size={14} color="var(--accent)" /> : <Copy size={14} color="var(--muted)" />}
       </motion.span>
     </button>
   )

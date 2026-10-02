@@ -28,13 +28,13 @@ export default async function BlogOgImage({ params }: { params: Promise<{ slug: 
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          backgroundColor: '#111010',
+          backgroundColor: '#06070a',
           padding: 72,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: '#fcf9f8' }} />
-          <div style={{ fontSize: 26, color: '#9b9391', letterSpacing: 4 }}>
+          <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: '#f3f4f6' }} />
+          <div style={{ fontSize: 26, color: '#9ca3af', letterSpacing: 4 }}>
             {`${category.toUpperCase()} · ELAH BLOG`}
           </div>
         </div>
@@ -44,7 +44,7 @@ export default async function BlogOgImage({ params }: { params: Promise<{ slug: 
             display: 'flex',
             fontSize: title.length > 44 ? 64 : 80,
             fontWeight: 700,
-            color: '#fcf9f8',
+            color: '#f3f4f6',
             letterSpacing: -2,
             lineHeight: 1.08,
             maxWidth: 1040,
@@ -58,12 +58,12 @@ export default async function BlogOgImage({ params }: { params: Promise<{ slug: 
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            borderTop: '1px solid #312d2d',
+            borderTop: '1px solid #232938',
             paddingTop: 32,
           }}
         >
-          <div style={{ fontSize: 28, color: '#9b9391' }}>elah.dev/blog</div>
-          <div style={{ fontSize: 28, color: '#9b9391' }}>{readingTime}</div>
+          <div style={{ fontSize: 28, color: '#9ca3af' }}>elah.dev/blog</div>
+          <div style={{ fontSize: 28, color: '#9ca3af' }}>{readingTime}</div>
         </div>
       </div>
     ),

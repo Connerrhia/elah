@@ -4,6 +4,7 @@ import { Footer } from '@/components/marketing/Footer'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { posts, categoryColors } from './posts'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Blog',
@@ -12,31 +13,29 @@ export const metadata: Metadata = {
 }
 
 export default function BlogPage() {
+  // Newest first. Same expression as app/feed.xml/route.ts, so the listing and the feed cannot disagree.
+  const sortedPosts = [...posts].sort((a, b) => b.date.localeCompare(a.date))
+
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <Navbar />
 
       <main id="main" className="flex-1">
         {/* Header */}
-        <div className="border-b border-outline-variant bg-surface py-14">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="label-mono mb-3 text-2xs text-on-surface-variant opacity-90">Engineering</div>
-            <h1
-              className="text-3xl font-semibold tracking-tight text-on-surface md:text-4xl"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-            >
-              Blog
-            </h1>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-on-surface-variant">
+        <PageHeader
+          eyebrow="Engineering"
+          title="Blog"
+          lede={
+            <>
               Architecture decisions, implementation deep-dives, and lessons from building browser-native video infrastructure.
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Posts */}
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post) => (
+            {sortedPosts.map((post) => (
               <article
                 key={post.slug}
                 className="group flex flex-col overflow-hidden rounded-md border border-outline-variant bg-surface-container p-5 transition-colors hover:border-outline"
@@ -50,7 +49,6 @@ export default function BlogPage() {
 
                 <h2
                   className="mb-2 text-sm font-semibold leading-snug text-on-surface"
-                  style={{ fontFamily: 'var(--font-inter), sans-serif' }}
                 >
                   {post.title}
                 </h2>

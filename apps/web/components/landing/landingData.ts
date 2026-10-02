@@ -2,27 +2,16 @@
 // components stay presentational. Copy mirrors the approved design; hrefs point
 // at the app's real routes.
 
-import { siteConfig } from '@/config/site'
-
-export const navLinks = [
-  { label: 'Docs', href: '/docs' },
-  { label: 'Examples', href: '/examples' },
-  { label: 'Playgrounds', href: '/playgrounds' },
-  { label: 'Blog', href: '/blog' },
-  { label: 'Pricing', href: '/pricing' },
-]
-
-export const GITHUB_URL = siteConfig.links.github
-export const DISCORD_URL = siteConfig.links.discord
-export const GET_STARTED_URL = '/docs/getting-started'
-export const EDITOR_URL = '/playground/production'
+// Navigation lives in config/nav.ts: one registry for the header and footer.
+import { GITHUB_URL } from '@/config/nav'
+export { navLinks, footerColumns, GITHUB_URL, DISCORD_URL, GET_STARTED_URL, EDITOR_URL } from '@/config/nav'
 
 export interface Library {
   pkg: string
   title: string
   subtitle: string
   href: string
-  variant: 'editor' | 'timeline' | 'headless' | 'core'
+  variant: 'editor' | 'timeline' | 'headless' | 'core' | 'react'
   /** Extra copyable command shown as a second line under the install command. */
   extraCmd?: string
 }
@@ -31,6 +20,7 @@ export const libraries: Library[] = [
   { pkg: '@elah/editor', title: 'Editor SDK', subtitle: 'Full editor — EditorProvider, Preview, AssetPanel, and Timeline in one composition.', href: '/playground/production', variant: 'editor' },
   { pkg: '@elah/timeline', title: 'Timeline UI', subtitle: 'React timeline — tracks, clips, drag/trim/split, ruler, playhead.', href: '/playground/timeline', variant: 'timeline' },
   { pkg: '@elah/cli', title: 'Headless Rendering', subtitle: 'Server-side render pipeline — split/trim/build/export and an HTTP render server.', href: '/docs/cli', variant: 'headless', extraCmd: 'npx @elah/cli serve' },
+  { pkg: '@elah/react', title: 'React Bindings', subtitle: 'React bindings — EditorContext, useEditor, store hooks, and the audio mixer hooks.', href: '/docs/react', variant: 'react' },
   { pkg: '@elah/core', title: 'Media Runtime', subtitle: 'Framework-agnostic engine — resolver, WebGL2 renderer, WebCodecs decode, MP4 export.', href: '/docs', variant: 'core' },
 ]
 
@@ -51,13 +41,13 @@ export const features: Feature[] = [
   {
     idx: '02',
     title: 'WebCodecs Decode Pipeline',
-    body: 'Push-based StreamingFrameProducer with ahead-of-playhead decoding. Frames are copied to ImageBitmap so the hardware output pool never starves.',
+    body: 'Push-based StreamingFrameProducer with ahead-of-playhead decoding. Frames are copied to ImageBitmap so the hardware output pool never starves, and a shared sourceBlobCache keeps one copy of each video’s bytes.',
     tags: ['WebCodecs', 'ImageBitmap', 'mediabunny'],
   },
   {
     idx: '03',
     title: 'WebGL2 GPU Renderer',
-    body: 'GpuRenderer turns each resolved Scene into sorted textured-quad draws composited by zIndex. Supports VideoLayer, ImageLayer, and TextLayer.',
+    body: 'GpuRenderer turns each resolved Scene into sorted textured-quad draws composited by zIndex. Layers: Video, Image, Text, Shape, and Freehand.',
     tags: ['WebGL2', 'OffscreenCanvas', 'GLSL'],
   },
   {
@@ -69,32 +59,32 @@ export const features: Feature[] = [
   {
     idx: '05',
     title: 'Zero-Drift Export — Browser & Server',
-    body: 'The export worker steps resolveTimeline frame-by-frame in the browser — and @elah/cli runs the exact same pipeline headlessly on your server. Bit-identical output, by construction.',
+    body: 'The export worker steps resolveTimeline frame-by-frame in the browser — and @elah/cli runs the exact same pipeline headlessly on your server. outputHeight sets the short edge, so one value suits landscape and portrait.',
     tags: ['Web Worker', 'MP4', '@elah/cli'],
   },
   {
     idx: '06',
     title: 'Interactive Transform Overlays',
-    body: 'Click-select, drag-move, corner-drag uniform scale for video and image clips. Text clips support drag, resize, inline-edit, and rotation.',
+    body: 'Video and image clips get eight resize handles, non-uniform scale (Shift keeps aspect), and a Resize/Crop toggle. Text clips add inline edit and a rotate knob that snaps to 15°. Crop and corner radius are clip properties you set through the engine.',
     tags: ['React', 'CSS transforms'],
   },
   {
     idx: '07',
-    title: 'Full Edit History',
-    body: 'Every edit goes through TimelineEngine.commit() — Immer-backed structural sharing with batching, undo/redo, and typed events.',
-    tags: ['Immer', 'Undo/Redo'],
+    title: 'Edit History & Stored Projects',
+    body: 'Every edit goes through TimelineEngine.commit() — Immer-backed structural sharing with batching, undo/redo, and typed events. Projects round-trip as versioned documents: readProjectDocument to load, relinkProjectMedia to reconnect files.',
+    tags: ['Immer', 'Undo/Redo', 'Project documents'],
   },
   {
     idx: '08',
-    title: 'Fade & Transition System',
-    body: 'Snapshot-overlay architecture. Resolver sets opacity; CSS handles preview via TransitionOverlay; export mirrors with globalAlpha. Renderer-agnostic.',
-    tags: ['CSS', 'globalAlpha'],
+    title: 'Transitions & Layered Motion',
+    body: 'Fade, slide, and wipe transitions render the same in preview and export. Text and shapes take layered in/out motion with back, elastic, and bounce easings, plus 14 built-in text templates.',
+    tags: ['MotionSpec', 'Easings', 'Templates'],
   },
   {
     idx: '09',
-    title: 'Renderer-Agnostic Core',
-    body: 'The data model and resolver know nothing about DOM, Canvas, or WebGL. Swap rendering backends without touching state or timeline logic.',
-    tags: ['TypeScript', 'Interfaces'],
+    title: 'Multi-Track Editing',
+    body: 'Stack multiple video tracks, retime clips from 0.25× to 4× with engine.setClipSpeed, and protect or pin tracks in place. Audio runs through a multi-track mixer with per-track levels and a master volume.',
+    tags: ['Tracks', 'Clip speed', 'Audio mixer'],
   },
 ]
 
@@ -105,10 +95,78 @@ export interface FlowLayer {
 
 export const flow: FlowLayer[] = [
   { name: 'REACT UI', items: ['Timeline', 'Preview', 'AssetPanel', 'TransformOverlay'] },
+  { name: 'REACT BINDINGS', items: ['EditorContext', 'useEditor', 'store hooks', 'audio mixer hooks'] },
   { name: 'ENGINE LAYER', items: ['TimelineEngine', 'PlaybackEngine', 'AudioPlaybackController'] },
   { name: 'PURE RESOLVER', items: ['resolveTimeline(frame, project) → Scene'] },
-  { name: 'RENDERERS', items: ['GpuRenderer (WebGL2)', 'ExportWorker (OffscreenCanvas)'] },
+  { name: 'RENDERERS', items: ['GpuRenderer (WebGL2)', 'Video · Image · Text layers', 'Shape · Freehand layers', 'ExportWorker (OffscreenCanvas)'] },
   { name: 'MEDIA PIPELINE', items: ['StreamingFrameProducer', 'WebCodecs', 'mediabunny demux'] },
+]
+
+export interface WhatsNewItem {
+  title: string
+  body: string
+  href: string
+}
+
+export const whatsNew: WhatsNewItem[] = [
+  {
+    title: 'Multiple video tracks, clip speed, crop and corner radius',
+    body: 'Stack video lanes, retime clips from 0.25× to 4×, and pin or protect tracks.',
+    href: '/docs/clips',
+  },
+  {
+    title: 'Layered text motion and 14 templates',
+    body: 'In and out motion with back, elastic, and bounce easings, applied as one template call.',
+    href: '/docs/text-templates-and-motion',
+  },
+  {
+    title: 'Frame sequences',
+    body: 'Turn a numbered image set — a 360° orbit, a flipbook — into a scrubbable timeline clip.',
+    href: '/docs/frame-sequences',
+  },
+  {
+    title: 'Stored project documents and re-linking',
+    body: 'Save a versioned project, load it back, and reconnect media that moved.',
+    href: '/docs/project-documents',
+  },
+  {
+    title: 'Theming tokens',
+    body: 'Restyle the editor and overlays with --elah-* tokens and per-slot classNames.',
+    href: '/docs/theming',
+  },
+  {
+    title: '@elah/react',
+    body: 'The React bindings now ship as their own package: EditorContext, hooks, and the audio mixer.',
+    href: '/docs/react',
+  },
+]
+
+export const AGENTS_GUIDE_URL = `${GITHUB_URL}/blob/main/docs/ai/ELAH_FOR_AI_AGENTS.md`
+
+export interface AgentPoint {
+  title: string
+  body: string
+  href: string
+  external?: boolean
+}
+
+export const agentPoints: AgentPoint[] = [
+  {
+    title: 'One-file integration guide',
+    body: 'ELAH_FOR_AI_AGENTS.md is a self-contained brief: the API surface and the gotchas, with no repo checkout needed.',
+    href: AGENTS_GUIDE_URL,
+    external: true,
+  },
+  {
+    title: 'Render what the model writes',
+    body: 'npx @elah/cli serve renders AI-generated specs to MP4 on your own hardware, frame-identical to the browser.',
+    href: '/docs/cli#serve',
+  },
+  {
+    title: 'llms.txt for discovery',
+    body: 'Every docs page is indexed in plain text at /llms.txt, so an agent can find the right page without scraping.',
+    href: '/llms.txt',
+  },
 ]
 
 export interface PlaygroundEntry {
@@ -122,10 +180,13 @@ export interface PlaygroundEntry {
   variant: 'full' | 'timeline' | 'demo'
 }
 
+/** Status-pill colours, shared by the playground cards and the showcase cards. */
+export const badgeColors = { live: '#3ddc97', preview: '#e0b33c' } as const
+
 export const playgrounds: PlaygroundEntry[] = [
   {
     badge: 'live',
-    badgeColor: '#3ddc97',
+    badgeColor: badgeColors.live,
     playhead: '38%',
     delay: '0s',
     title: 'Full Editor',
@@ -135,7 +196,7 @@ export const playgrounds: PlaygroundEntry[] = [
   },
   {
     badge: 'live',
-    badgeColor: '#3ddc97',
+    badgeColor: badgeColors.live,
     playhead: '62%',
     delay: '-3s',
     title: 'Timeline Only',
@@ -145,7 +206,7 @@ export const playgrounds: PlaygroundEntry[] = [
   },
   {
     badge: 'preview',
-    badgeColor: '#e0b33c',
+    badgeColor: badgeColors.preview,
     playhead: '22%',
     delay: '-6s',
     title: 'Full Editor Demo',
@@ -171,6 +232,9 @@ export const integrationPoints: IntegrationPoint[] = [
 export interface FaqItem {
   q: string
   a: string
+  /** Optional follow-up link rendered under the answer. */
+  href?: string
+  hrefLabel?: string
 }
 
 export const faq: FaqItem[] = [
@@ -196,7 +260,19 @@ export const faq: FaqItem[] = [
   },
   {
     q: 'Which frameworks does elah support?',
-    a: 'The core engine is framework-agnostic TypeScript with zero React imports. React and Next.js bindings ship today via @elah/editor and @elah/timeline; React Native support is experimental, with more frameworks planned.',
+    a: 'The core engine is framework-agnostic TypeScript with zero React imports. React bindings live in @elah/react (EditorContext, useEditor, store hooks, audio mixer hooks), and Next.js works through @elah/editor and @elah/timeline; React Native support is experimental, with more frameworks planned.',
+  },
+  {
+    q: 'What changed in 0.6.0?',
+    a: 'Multiple video tracks, clip speed, crop and corner radius, layered text motion with 14 templates, frame sequences, and stored project documents with media re-linking, plus fixes for eight defects found while verifying the port.',
+    href: '/blog/elah-0-6-0',
+    hrefLabel: 'Read the 0.6.0 release post',
+  },
+  {
+    q: 'Can an AI agent drive the editor?',
+    a: 'Today an agent can build against elah using the single-file ELAH_FOR_AI_AGENTS.md guide, and render the specs it writes with npx @elah/cli serve. A WebMCP surface, so agents could drive an open editor directly, is planned but not built and has no date.',
+    href: '/docs/agents',
+    hrefLabel: 'Read the agents guide',
   },
   {
     q: 'Is elah open source?',
@@ -249,6 +325,28 @@ export const tracks: Track[] = [
     ],
   },
   {
+    name: 'Video 2',
+    short: 'V2',
+    clips: [
+      {
+        left: '8%',
+        width: '22%',
+        bg: 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+        border: '#60a5fa',
+        shadow: '0 1px 2px rgba(0,0,0,.25)',
+        label: 'overlay.mp4',
+      },
+      {
+        left: '46%',
+        width: '16%',
+        bg: 'linear-gradient(180deg,#3b82f6,#1d4ed8)',
+        border: '#60a5fa',
+        shadow: '0 1px 2px rgba(0,0,0,.25)',
+        label: 'logo.png',
+      },
+    ],
+  },
+  {
     name: 'Elements',
     short: 'E',
     clips: [
@@ -292,39 +390,6 @@ export const tracks: Track[] = [
         wave: true,
         waveColor: '#248f6c',
       },
-    ],
-  },
-]
-
-export const footerColumns = [
-  {
-    heading: 'PRODUCT',
-    links: [
-      { label: 'Docs', href: '/docs' },
-      { label: 'Examples', href: '/examples' },
-      { label: 'Playgrounds', href: '/playgrounds' },
-      { label: 'Changelog', href: '/changelog' },
-      { label: 'Pricing', href: '/pricing' },
-    ],
-  },
-  {
-    heading: 'DEVELOPERS',
-    links: [
-      { label: 'Getting Started', href: '/docs/getting-started' },
-      { label: 'Timeline API', href: '/docs' },
-      { label: 'Editor API', href: '/docs' },
-      { label: 'Export Pipeline', href: '/docs' },
-      { label: 'Architecture', href: '/docs/architecture' },
-    ],
-  },
-  {
-    heading: 'COMPANY',
-    links: [
-      { label: 'GitHub', href: GITHUB_URL },
-      { label: 'Discord', href: DISCORD_URL },
-      { label: 'Contact', href: GITHUB_URL },
-      { label: 'Contributing', href: `${GITHUB_URL}/blob/main/CONTRIBUTING.md` },
-      { label: 'License', href: `${GITHUB_URL}/blob/main/LICENSE` },
     ],
   },
 ]

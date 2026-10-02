@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Export',
@@ -21,19 +22,20 @@ export default function ExportPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Export</div>
-          <h1 className="text-3xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-            Export Pipeline
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            The export pipeline runs frame-by-frame in a dedicated Web Worker, muxes MP4 with mediabunny, and never drifts from the live preview.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          eyebrow="Export"
+          title="Export Pipeline"
+          lede={
+            <>
+              The export pipeline runs frame-by-frame in a dedicated Web Worker, muxes MP4 with mediabunny, and never drifts from the live preview.
+            </>
+          }
+        />
 
         {/* exportVideo */}
         <section className="mb-10">
-          <h2 id="export-video" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="export-video" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             exportVideo()
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -63,7 +65,7 @@ export function ExportButton() {
       audioCodec: 'aac',       // 'aac' | 'opus'
       videoBitrate: 8_000_000, // 8 Mbps (default)
       audioBitrate: 192_000,
-      outputHeight: 1080,      // optional downscale; default = stage height
+      outputHeight: 1080,      // optional: the stage's SHORT edge in px; default = native short edge
       onProgress: (p) => setProgress(p),
     }
 
@@ -96,11 +98,52 @@ export function ExportButton() {
   )
 }`}
           />
+          <div className="mt-6">
+            <h3 className="mb-3 text-base font-semibold tracking-tight text-on-surface">
+              outputHeight is the short edge
+            </h3>
+            <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
+              <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">outputHeight</code> names the stage&apos;s <strong className="text-on-surface font-medium">short</strong> edge, the way &ldquo;1080p&rdquo; does: <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">1080</code> means 1920&times;1080 for a landscape stage and 1080&times;1920 for a portrait one. The other edge is derived from the stage&apos;s aspect ratio and rounded to an even number, which most video codecs require. Omit it and the export uses the stage&apos;s native size.
+            </p>
+            <div className="mb-4 overflow-x-auto rounded-md border border-outline-variant bg-surface-low p-4">
+              <table className="w-full min-w-[26rem] text-xs">
+                <thead>
+                  <tr className="border-b border-outline-variant">
+                    <th className="pb-2 text-left font-medium text-on-surface">Stage</th>
+                    <th className="pb-2 text-left font-mono font-medium text-on-surface">outputHeight</th>
+                    <th className="pb-2 text-left font-medium text-on-surface">Encoded size</th>
+                  </tr>
+                </thead>
+                <tbody className="text-on-surface-variant">
+                  {[
+                    ['1920×1080 (landscape)', '1080', '1920×1080'],
+                    ['1080×1920 (portrait)', '1080', '1080×1920'],
+                    ['1920×1080 (landscape)', '720', '1280×720'],
+                    ['1080×1920 (portrait)', '720', '720×1280'],
+                    ['1080×1080 (square)', '720', '720×720'],
+                    ['any', 'omitted', 'the stage size, unscaled'],
+                  ].map(([stage, value, size]) => (
+                    <tr key={stage + value} className="border-b border-outline-variant last:border-0">
+                      <td className="py-2 pr-3">{stage}</td>
+                      <td className="py-2 pr-3 font-mono text-on-surface">{value}</td>
+                      <td className="py-2 font-mono">{size}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="rounded-md border border-outline-variant bg-surface-low p-4">
+              <div className="label-mono mb-1 text-2xs text-on-surface-variant opacity-90">Behaviour change in 0.6.0</div>
+              <p className="text-xs leading-relaxed text-on-surface-variant">
+                The value used to be scaled against the stage height. That only holds for landscape stages, because on a portrait stage the height is the long edge. A 9:16 project asked for 1080 came out 608&times;1080 instead of 1080&times;1920. If you pass <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">outputHeight</code> for a portrait project, the encoded size changes when you upgrade. The headless CLI&apos;s <code className="rounded bg-surface-container px-1.5 py-0.5 font-mono">--height</code> flag is the same option.
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* Worker */}
         <section className="mb-10">
-          <h2 id="worker" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="worker" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Export Worker
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -139,7 +182,7 @@ const blob = await lazyExportVideo(project, options)`}
 
         {/* Audio pipeline */}
         <section className="mb-10">
-          <h2 id="audio" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="audio" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Audio Pipeline
           </h2>
           <div className="mb-4 rounded-md border border-outline-variant bg-amber-50 p-4">
@@ -170,7 +213,7 @@ const toggleMute = usePlaybackStore((s) => s.toggleMute)
 
         {/* Progress */}
         <section className="mb-10">
-          <h2 id="progress" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="progress" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Progress Tracking
           </h2>
           <CodeBlock
@@ -192,7 +235,7 @@ const blob = await exportVideo(project, {
 
         {/* Browser limits */}
         <section className="mb-10">
-          <h2 id="limits" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="limits" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Browser Limits
           </h2>
           <div className="overflow-hidden rounded-md border border-outline-variant">

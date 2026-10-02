@@ -13,6 +13,14 @@ const DOCS_PAGES = [
   'api',
   'architecture',
   'plugins',
+  'analytics',
+  'clips',
+  'text-templates-and-motion',
+  'frame-sequences',
+  'project-documents',
+  'theming',
+  'react',
+  'agents',
 ]
 
 const PLAYGROUND_PAGES = ['production', 'timeline', 'raw']

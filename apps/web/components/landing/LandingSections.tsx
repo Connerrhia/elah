@@ -1,5 +1,8 @@
 import type { CSSProperties } from 'react'
-import { features, flow, integrationPoints, faq, GITHUB_URL, GET_STARTED_URL } from './landingData'
+import Link from 'next/link'
+import { currentVersion, releases } from '@/config/changelog'
+import { features, flow, integrationPoints, faq, whatsNew, GITHUB_URL, GET_STARTED_URL } from './landingData'
+import { ArrowRight } from 'lucide-react'
 import { Reveal } from './motion/Reveal'
 import { Stagger, StaggerItem, StaggerGrow } from './motion/Stagger'
 import { Spotlight } from './motion/Spotlight'
@@ -23,39 +26,79 @@ const heading: CSSProperties = {
 
 const sectionPad = 'clamp(60px, 9vw, 100px) 24px'
 
-export function SpecStrip() {
-  const specs = [
-    ['TIME MODEL', 'Integer frames'],
-    ['RENDERER', 'WebGL2 / OffscreenCanvas'],
-    ['DECODE', 'WebCodecs + mediabunny'],
-    ['AUDIO', 'Web Audio API'],
-  ]
+export function WhatsNew() {
+  const latest = releases[0]
   return (
-    <section style={{ borderTop: '1px solid var(--line2)', borderBottom: '1px solid var(--line2)' }}>
-      <Stagger
-        style={{
-          maxWidth: 1200,
-          margin: '0 auto',
-          padding: '0 28px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(215px,1fr))',
-        }}
-      >
-        {specs.map(([label, value], i) => (
-          <StaggerItem
-            key={label}
-            style={{
-              padding: i === 0 ? '22px 24px 22px 0' : i === specs.length - 1 ? '22px 0 22px 24px' : '22px 24px',
-              borderRight: i === specs.length - 1 ? undefined : '1px solid var(--line2)',
-            }}
-          >
-            <div style={{ fontFamily: 'var(--font-geist-mono)', fontSize: 10, letterSpacing: '.14em', color: 'var(--faint)' }}>
-              {label}
-            </div>
-            <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: 6 }}>{value}</div>
-          </StaggerItem>
-        ))}
-      </Stagger>
+    <section style={{ borderBottom: '1px solid var(--line2)' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: sectionPad }}>
+        <div style={eyebrow}>
+          v{currentVersion} — {latest.date}
+        </div>
+        <Reveal as="h2" style={{ ...heading, margin: '14px 0 8px' }}>
+          What&apos;s new in {currentVersion}.
+        </Reveal>
+        <p style={{ color: 'var(--muted)', fontSize: 16, maxWidth: 680, margin: '0 0 40px', lineHeight: 1.6, textWrap: 'pretty' }}>
+          {latest.summary}
+        </p>
+        <Stagger
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px,100%),1fr))',
+            gap: 18,
+          }}
+        >
+          {whatsNew.map((item) => (
+            <StaggerItem key={item.href} style={{ display: 'flex' }}>
+              <Spotlight
+                lift={4}
+                className="lv-pgcard"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  border: '1px solid var(--line)',
+                  borderRadius: 12,
+                  background: 'var(--card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'border-color .18s, box-shadow .18s',
+                }}
+              >
+                <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                  <h3 style={{ fontSize: 16, margin: 0, fontWeight: 600, letterSpacing: '-0.015em', textWrap: 'balance' }}>{item.title}</h3>
+                  <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.62, margin: 0, flex: 1, textWrap: 'pretty' }}>
+                    {item.body}
+                  </p>
+                  <Link
+                    href={item.href}
+                    className="lv-launch"
+                    style={{
+                      marginTop: 4,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: 'var(--accent)',
+                      fontWeight: 600,
+                      fontSize: 13.5,
+                      transition: 'gap .18s',
+                    }}
+                  >
+                    Read the docs
+                    <ArrowRight size={15}  />
+                  </Link>
+                </div>
+              </Spotlight>
+            </StaggerItem>
+          ))}
+        </Stagger>
+        <div style={{ display: 'flex', gap: '10px 24px', flexWrap: 'wrap', marginTop: 32, fontFamily: 'var(--font-geist-mono)', fontSize: 12.5 }}>
+          <Link href="/changelog" className="lv-ghost" style={{ color: 'var(--accent)' }}>
+            Full changelog →
+          </Link>
+          <Link href="/blog/elah-0-6-0" className="lv-ghost" style={{ color: 'var(--accent)' }}>
+            Read the release post →
+          </Link>
+        </div>
+      </div>
     </section>
   )
 }
@@ -371,6 +414,15 @@ export function Faq() {
                 <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 20px', maxWidth: 640, textWrap: 'pretty' }}>
                   {item.a}
                 </p>
+                {item.href && (
+                  <Link
+                    href={item.href}
+                    className="lv-ghost"
+                    style={{ display: 'inline-block', margin: '-8px 0 20px', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)', fontSize: 12.5 }}
+                  >
+                    {item.hrefLabel ?? 'Read more'} →
+                  </Link>
+                )}
               </Accordion>
             </Reveal>
           ))}

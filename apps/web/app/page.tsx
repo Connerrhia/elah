@@ -4,8 +4,12 @@ import { siteConfig } from '@/config/site'
 import { currentVersion } from '@/config/changelog'
 import { LandingNav } from '@/components/landing/LandingNav'
 import { LandingHero } from '@/components/landing/LandingHero'
-import { SpecStrip, Architecture, DataFlow, Integration, Faq, Cta } from '@/components/landing/LandingSections'
+import { WhatsNew, Architecture, DataFlow, Integration, Faq, Cta } from '@/components/landing/LandingSections'
+import { StatsStrip } from '@/components/landing/StatsStrip'
+import { getSiteStats, toDisplay } from '@/lib/stats'
 import { LandingLibraries } from '@/components/landing/LandingLibraries'
+import { AgentsBand } from '@/components/landing/AgentsBand'
+import { ShowcaseTeaser } from '@/components/landing/ShowcaseTeaser'
 import { LandingPlaygrounds } from '@/components/landing/LandingPlaygrounds'
 import { LandingFooter } from '@/components/landing/LandingFooter'
 
@@ -13,6 +17,8 @@ export const metadata: Metadata = {
   title: { absolute: 'elah — browser-native, frame-accurate video editing engine' },
   alternates: { canonical: '/' },
 }
+
+export const revalidate = 3600
 
 const softwareJsonLd = {
   '@context': 'https://schema.org',
@@ -26,19 +32,23 @@ const softwareJsonLd = {
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const stats = toDisplay(await getSiteStats())
   return (
     <div className="landing-root" style={{ minHeight: '100vh' }}>
       <JsonLd data={softwareJsonLd} />
       <LandingNav />
       <main>
-        <LandingHero />
-        <SpecStrip />
+        <LandingHero stats={stats} />
+        <StatsStrip stats={stats} />
+        <WhatsNew />
         <LandingLibraries />
         <Architecture />
         <DataFlow />
         <LandingPlaygrounds />
         <Integration />
+        <AgentsBand />
+        <ShowcaseTeaser />
         <Faq />
         <Cta />
       </main>

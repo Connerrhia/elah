@@ -1,5 +1,6 @@
 import type { Config } from 'tailwindcss'
 import typography from '@tailwindcss/typography'
+import plugin from 'tailwindcss/plugin'
 import preset from '../../tailwind.preset'
 
 // Shared tokens (colors, type scale, radii, shadows, motion) live in the
@@ -54,7 +55,19 @@ const config: Config = {
       },
     },
   },
-  plugins: [typography],
+  plugins: [
+    typography,
+    // One heading face for the whole site. Lives here (base layer, lowest
+    // precedence) so no page has to re-declare it; any utility, component
+    // class or inline style still wins. The editor surface keeps its own type.
+    plugin(({ addBase }) => {
+      addBase({
+        ':is(h1, h2, h3, h4):not(.elah-root *)': {
+          fontFamily: 'var(--font-display), system-ui, sans-serif',
+        },
+      })
+    }),
+  ],
 }
 
 export default config

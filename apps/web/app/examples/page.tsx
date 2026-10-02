@@ -5,6 +5,7 @@ import { CodeBlock } from '@/components/docs/CodeBlock'
 import { ArrowRight, Github } from 'lucide-react'
 import Link from 'next/link'
 import { siteConfig } from '@/config/site'
+import { PageHeader } from '@/components/site/PageHeader'
 
 const fullExamples = [
   {
@@ -220,7 +221,7 @@ export function ExportPanel() {
       <button
         onClick={handleExport}
         disabled={!!progress}
-        style={{ padding: '8px 16px', background: '#b7102a', color: '#fff' }}
+        style={{ padding: '8px 16px', background: '#0086c9', color: '#fff' }}
       >
         {progress ? \`Exporting \${percent}%\` : 'Export MP4'}
       </button>
@@ -236,7 +237,7 @@ export function ExportPanel() {
       )}
 
       {error && (
-        <div style={{ marginTop: 8, color: '#b7102a', fontSize: 12 }}>
+        <div style={{ marginTop: 8, color: '#0086c9', fontSize: 12 }}>
           Error: {error}
         </div>
       )}
@@ -318,9 +319,9 @@ export default function CustomRendererExample() {
 ]
 
 const categoryColors: Record<string, string> = {
-  Integration: 'text-secondary bg-blue-50 border-blue-200',
-  Advanced: 'text-primary bg-red-50 border-red-200',
-  Export: 'text-tertiary bg-green-50 border-green-200',
+  Integration: 'text-secondary bg-secondary/10 border-secondary/25',
+  Advanced: 'text-primary bg-primary/10 border-primary/25',
+  Export: 'text-tertiary bg-tertiary/10 border-tertiary/25',
 }
 
 export default function ExamplesPage() {
@@ -330,20 +331,15 @@ export default function ExamplesPage() {
 
       <main className="flex-1">
         {/* Header */}
-        <div className="border-b border-outline-variant bg-surface py-14">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="label-mono mb-3 text-2xs text-on-surface-variant opacity-90">Code</div>
-            <h1
-              className="text-3xl font-semibold tracking-tight text-on-surface md:text-4xl"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-            >
-              Examples
-            </h1>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-on-surface-variant">
+        <PageHeader
+          eyebrow="Code"
+          title="Examples"
+          lede={
+            <>
               Integration examples for common use cases. Copy, adapt, ship.
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Complete example apps */}
         <div className="border-b border-outline-variant bg-surface-low py-12">
@@ -353,7 +349,6 @@ export default function ExamplesPage() {
             </div>
             <h2
               className="text-xl font-semibold tracking-tight text-on-surface"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
             >
               Complete production example
             </h2>
@@ -375,7 +370,6 @@ export default function ExamplesPage() {
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <h3
                       className="text-base font-semibold tracking-tight text-on-surface"
-                      style={{ fontFamily: 'var(--font-inter), sans-serif' }}
                     >
                       {ex.framework}
                     </h3>
@@ -425,7 +419,6 @@ export default function ExamplesPage() {
                   </div>
                   <h2
                     className="text-xl font-semibold tracking-tight text-on-surface"
-                    style={{ fontFamily: 'var(--font-inter), sans-serif' }}
                   >
                     {ex.title}
                   </h2>

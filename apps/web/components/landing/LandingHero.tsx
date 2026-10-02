@@ -4,13 +4,12 @@ import { useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import Link from 'next/link'
 import posthog from 'posthog-js'
-import { Icon } from './Icon'
+import { Check, CirclePlay, Copy, Rocket } from 'lucide-react'
 import { DiscordIcon } from './DiscordIcon'
-import { CardHeader } from './CardHeader'
 import { EditorMockup } from './EditorMockup'
-import { DISCORD_URL, EDITOR_URL, GET_STARTED_URL, GITHUB_URL, libraries } from './landingData'
+import { DISCORD_URL, EDITOR_URL, GET_STARTED_URL, GITHUB_URL } from './landingData'
 import { trackEvent, trackPlaygroundLaunch } from '@/lib/analytics'
-import { Spotlight } from './motion/Spotlight'
+import type { SiteStatsDisplay } from '@/lib/stats'
 import type { MotionChildren } from './motion/types'
 import { useInView } from './motion/useInView'
 
@@ -108,14 +107,14 @@ function CommandLine({ command, copied, onCopy }: CommandLineProps) {
           transition={{ type: 'spring', stiffness: 520, damping: 14 }}
           style={{ display: 'inline-flex', flexShrink: 0, marginLeft: 'auto' }}
         >
-          <Icon name={copied ? 'check' : 'content_copy'} size={16} color={copied ? 'var(--accent)' : 'var(--faint)'} />
+          {copied ? <Check size={16} color="var(--accent)" /> : <Copy size={16} color="var(--faint)" />}
         </motion.span>
       </button>
     </div>
   )
 }
 
-export function LandingHero() {
+export function LandingHero({ stats }: { stats: SiteStatsDisplay }) {
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const reduce = useReducedMotion()
@@ -234,7 +233,7 @@ export function LandingHero() {
               gap: 7,
             }}
           >
-            <Icon name="rocket_launch" size={15} color="var(--ink)" />
+            <Rocket size={15} color="var(--ink)"  />
             Get Started
           </Link>
           <Link
@@ -250,7 +249,7 @@ export function LandingHero() {
               })
             }
           >
-            <Icon name="play_circle" size={15} color="var(--accent)" />
+            <CirclePlay size={15} color="var(--accent)"  />
             Live Playground
           </Link>
         </div>
@@ -269,12 +268,32 @@ export function LandingHero() {
             animation: `${riseBase} .24s both`,
           }}
         >
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="lv-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
-            <span aria-hidden>⭐</span> Star us on GitHub
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lv-ghost"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}
+            onClick={() => trackEvent('stats_clicked', { stat: 'stars', source: 'hero' })}
+          >
+            {stats.stars ? (
+              <>
+                <span aria-hidden>★</span> {stats.stars} stars
+              </>
+            ) : (
+              'Star on GitHub'
+            )}
           </a>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span aria-hidden>📦</span> 4 Open Source Libraries
-          </span>
+          <a
+            href="https://www.npmjs.com/package/@elah/editor"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lv-ghost"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}
+            onClick={() => trackEvent('stats_clicked', { stat: 'downloads', source: 'hero' })}
+          >
+            {stats.downloads ? `${stats.downloads} npm downloads` : '5 open-source packages'}
+          </a>
           <span
             style={{
               border: '1px solid var(--line)',
@@ -301,95 +320,13 @@ export function LandingHero() {
           </a>
         </div>
 
-        {/* install commands — one per package, each independently copyable */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 14,
-            width: '100%',
-            animation: `${riseBase} .3s both`,
-          }}
-        >
-          {libraries.map((lib) => {
-            const installCmd = `npm install ${lib.pkg}`
-            return (
-              <Spotlight
-                key={lib.pkg}
-                className="lv-pgcard"
-                style={{
-                  border: '1px solid var(--line)',
-                  borderRadius: 12,
-                  background: 'var(--card)',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  textAlign: 'left',
-                  transition: 'border-color .18s, box-shadow .18s',
-                }}
-              >
-                <Link
-                  href={lib.href}
-                  aria-label={`Try ${lib.title}`}
-                  style={{ display: 'block' }}
-                  onClick={() =>
-                    trackPlaygroundLaunch({ source: 'hero_library_card', title: lib.title, href: lib.href, variant: lib.variant })
-                  }
-                >
-                  <CardHeader kind={lib.variant} />
-                </Link>
-                <div
-                  style={{
-                    padding: '10px 10px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{lib.title}</span>
-                  <Link
-                    href={lib.href}
-                    className="lv-launch"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      color: 'var(--accent)',
-                      fontWeight: 600,
-                      fontSize: 11.5,
-                      background: 'color-mix(in oklab, var(--bg) 55%, transparent)',
-                      border: '1px solid var(--accent)',
-                      borderRadius: 5,
-                      padding: '3px 8px',
-                      flexShrink: 0,
-                      transition: 'gap .18s',
-                    }}
-                    onClick={() =>
-                      trackPlaygroundLaunch({ source: 'hero_library_card', title: lib.title, href: lib.href, variant: lib.variant })
-                    }
-                  >
-                    Try now
-                    <Icon name="arrow_forward" size={12} />
-                  </Link>
-                </div>
-                <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <CommandLine
-                    command={installCmd}
-                    copied={copiedCmd === installCmd}
-                    onCopy={() => copyCmd(installCmd, lib.pkg)}
-                  />
-                  {lib.extraCmd && (
-                    <CommandLine
-                      command={lib.extraCmd}
-                      copied={copiedCmd === lib.extraCmd}
-                      onCopy={() => copyCmd(lib.extraCmd as string, lib.pkg)}
-                    />
-                  )}
-                </div>
-              </Spotlight>
-            )
-          })}
+        {/* one copyable install; the five packages are laid out in the libraries section below */}
+        <div style={{ width: '100%', maxWidth: 440, textAlign: 'left', animation: `${riseBase} .3s both` }}>
+          <CommandLine
+            command="npm install @elah/editor"
+            copied={copiedCmd === 'npm install @elah/editor'}
+            onCopy={() => copyCmd('npm install @elah/editor', '@elah/editor')}
+          />
         </div>
 
         {/* scroll hint */}

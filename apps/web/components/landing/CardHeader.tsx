@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { InView } from './motion/InView'
 
-export type CardHeaderKind = 'editor' | 'timeline' | 'headless' | 'core' | 'demo'
+export type CardHeaderKind = 'editor' | 'timeline' | 'headless' | 'core' | 'react' | 'demo'
 
 export interface CardHeaderProps {
   kind: CardHeaderKind
@@ -154,6 +154,11 @@ function CardHeaderBody({ kind, playheadPct = '48%', delay = '-3s' }: CardHeader
     )
   }
 
+  // 'core' and 'react' share one artwork: a centre pill with satellite tags.
+  const hub =
+    kind === 'react'
+      ? { label: 'react', tags: ['useEditor', 'context', 'hooks', 'mixer'] }
+      : { label: 'core', tags: ['react', 'vue', 'node', 'vanilla'] }
   return (
     <div style={{ ...headerBase, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span
@@ -169,13 +174,13 @@ function CardHeaderBody({ kind, playheadPct = '48%', delay = '-3s' }: CardHeader
           zIndex: 1,
         }}
       >
-        core
+        {hub.label}
       </span>
       {[
-        { label: 'react', top: '14%', left: '10%', delay: '0s' },
-        { label: 'vue', top: '14%', left: '68%', delay: '.9s' },
-        { label: 'node', top: '68%', left: '8%', delay: '1.8s' },
-        { label: 'vanilla', top: '68%', left: '64%', delay: '2.7s' },
+        { label: hub.tags[0], top: '14%', left: '10%', delay: '0s' },
+        { label: hub.tags[1], top: '14%', left: '64%', delay: '.9s' },
+        { label: hub.tags[2], top: '68%', left: '8%', delay: '1.8s' },
+        { label: hub.tags[3], top: '68%', left: '64%', delay: '2.7s' },
       ].map((tag) => (
         <span
           key={tag.label}

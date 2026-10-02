@@ -28,6 +28,7 @@ export interface RedditMapping {
 export type AnalyticsEventName =
   | 'playground_launched'
   | 'discord_clicked'
+  | 'stats_clicked'
   | 'pwa_install_prompt_shown'
   | 'pwa_install_clicked'
   | 'pwa_installed'
