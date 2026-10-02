@@ -3,9 +3,14 @@ import { CliError } from './errors'
 
 /**
  * The AI-friendly build spec: times in seconds, assets by name, no engine
- * bookkeeping. `elah build` turns this into a full Project via TimelineEngine —
- * overlaps and track caps are enforced by core; source bounds are enforced
- * here in frame space (the engine does not validate source windows on update).
+ * bookkeeping. `elah build` turns this into a full Project via TimelineEngine.
+ *
+ * The spec gives every video clip the same video track, so overlapping video
+ * clips are a build error here rather than something the engine rejects — it
+ * has allowed several video tracks since the multi-track change, but this
+ * format has no way to say which one a clip belongs to. Source bounds are
+ * enforced here in frame space too (the engine does not validate source
+ * windows on update).
  */
 export interface BuildSpec {
   /** Frames per second — integer. Default 30. */

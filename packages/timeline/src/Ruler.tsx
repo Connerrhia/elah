@@ -1,15 +1,20 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
+import { framesToTimecode } from '@elah/core'
 import { cn } from './cn'
+import { timelineContentWidth } from './contentWidth'
 
 /**
- * Ruler timecode label — two-segment form matching the design (00:00, 00:30,
- * 00:60, 00:90 … 00:330). The minutes segment stays "00" and the seconds segment
- * is the cumulative second count, intentionally NOT rolled over to minutes (per
- * the Figma mock).
+ * Ruler label from the shared timecode formatter, so it agrees with the rest of
+ * the UI (a 90 s mark reads 01:30, not 00:90). Whole-second ticks drop the
+ * frames segment; sub-second ticks keep it. The hours segment appears only once
+ * it is non-zero — without that the one-hour mark renders as 00:00 and collides
+ * with the start of the project.
  */
-function formatRulerLabel(frame: number, fps: number): string {
-  const totalSeconds = Math.round(frame / fps)
-  return `00:${String(totalSeconds).padStart(2, '0')}`
+export function formatRulerLabel(frame: number, fps: number, showFrames: boolean): string {
+  const full = framesToTimecode(frame, fps) // HH:MM:SS:FF
+  const hours = full.slice(0, 2)
+  const body = showFrames ? full.slice(3) : full.slice(3, 8)
+  return hours === '00' ? body : `${hours}:${body}`
 }
 
 interface RulerProps {
@@ -44,8 +49,9 @@ export const Ruler = memo(function Ruler({
   labelClassName,
 }: RulerProps) {
   // Content-driven width; CSS minWidth: '100%' ensures it fills the container on
-  // first load when the content is narrower than the visible area.
-  const contentWidth = totalFrames * zoom
+  // first load when the content is narrower than the visible area. Must match
+  // the lanes' width formula or ticks and clips desync at low zoom.
+  const contentWidth = timelineContentWidth(totalFrames, zoom)
 
   const ticks = useMemo(() => {
     const pixelsPerFrame = zoom
@@ -61,10 +67,11 @@ export const Ruler = memo(function Ruler({
       intervals.find((i) => i >= rawSeconds) ?? intervals[intervals.length - 1]
 
     const framesPerTick = Math.max(1, Math.round(secondsPerTick * fps))
+    const showFrames = framesPerTick < fps
     const result: { frame: number; label: string }[] = []
 
     for (let frame = 0; frame <= totalFrames + framesPerTick; frame += framesPerTick) {
-      result.push({ frame, label: formatRulerLabel(frame, fps) })
+      result.push({ frame, label: formatRulerLabel(frame, fps, showFrames) })
     }
 
     return result

@@ -1,33 +1,33 @@
-import { ApiError } from './api'
-import { relativeTime } from './projects'
-
 /**
- * The pure half of the editor's autosave: when to save, what to do when the
- * server refuses, and what the indicator says. The editor page owns the engine
- * subscription and the network call; every *decision* lives here, where vitest
- * can hold it still (`lib/` is the only tree the run covers).
+ * The pure half of the editor's autosave: when to save, and what to do when the
+ * store refuses. `LocalProjectBridge` owns the engine subscription and the
+ * write itself — a synchronous `localStorage` adapter (see
+ * `lib/local-project.ts`) — while every *decision* lives here, where vitest can
+ * hold it still (`lib/` is the only tree the run covers).
+ *
+ * `save` is version-aware so a versioned store can be plugged in, but the local
+ * adapter pins the version at 0 and never rejects with a conflict. The conflict
+ * path is kept because rules 1 and 2 describe it and the tests exercise it.
  *
  * The rules this file exists to enforce, in order of how expensive they are to
  * get wrong:
  *
- *  1. **Never two saves in flight.** `PUT /projects/:id/document` is guarded by
- *     `documentVersion`, and the version only moves when a save *returns*. Two
- *     overlapping PUTs would send the same version twice and the second would
- *     409 against work the user never conflicted with. Edits made during a save
- *     are held and saved once it lands.
- *  2. **A 409 stops the loop.** It means somebody else's version is stored;
- *     retrying with the same stale version would 409 forever and hammer the
- *     server while telling the user nothing. Saving is suspended until the page
- *     reloads the latest document and calls `resume` with the new version.
+ *  1. **Never two saves in flight.** A versioned store is guarded by a document
+ *     version, and the version only moves when a save *returns*. Two overlapping
+ *     writes would send the same version twice and the second would conflict
+ *     against work the user never conflicted with. Edits made during a save are
+ *     held and saved once it lands.
+ *  2. **A conflict stops the loop.** It means somebody else's version is
+ *     stored; retrying with the same stale version would conflict forever.
+ *     Saving is suspended until the caller reloads the latest document and
+ *     calls `resume` with the new version.
  *  3. **Debounce, don't throttle.** A drag emits a change per commit. The timer
  *     restarts on each one, so a save lands once the user pauses rather than
  *     every few seconds mid-gesture.
- *  4. **Never save back what the server just gave us.** Opening a project
+ *  4. **Never save back what the store just gave us.** Opening a project
  *     restores its document into the engine, and the engine announces that the
  *     same way it announces an edit. Without a baseline, every open would write
- *     the document straight back — burning a version, showing "Saving…" on a
- *     project nobody touched, and turning a read into a write that can conflict
- *     with the other tab that actually is editing. See {@link Autosave.rebase}.
+ *     the document straight back. See {@link Autosave.rebase}.
  */
 
 /**
@@ -44,59 +44,26 @@ export type AutosaveStatus =
   | { kind: 'dirty' }
   | { kind: 'saving' }
   | { kind: 'saved'; at: number }
-  /** The server holds a newer version. Saving is suspended until `resume`. */
+  /** The store holds a newer version. Saving is suspended until `resume`. */
   | { kind: 'conflict' }
-  /**
-   * The stored document can't be read by this build, so nothing is being saved
-   * over it. Set by the page rather than by `createAutosave` — there is no
-   * autosave at all in this state, which is the whole point of it.
-   */
-  | { kind: 'blocked' }
-  /** A transport or server failure. The next edit retries. */
+  /** A write failure. The next edit retries. */
   | { kind: 'error'; message: string }
 
 /**
- * The indicator's text. It is not decoration — for a user who has never seen
- * this editor before it is the only evidence their work is anywhere but the
- * screen, so every state says something and none of them says "Saved" unless a
- * save actually returned.
+ * Thrown by a `save` callback when the store holds a newer version than the
+ * one sent. The local `localStorage` adapter never throws it (one writer, one
+ * key); it exists so a versioned adapter has a way to say "stale".
  */
-export function autosaveLabel(status: AutosaveStatus, now: number): string {
-  switch (status.kind) {
-    case 'idle':
-      return 'All changes saved'
-    case 'dirty':
-      return 'Unsaved changes'
-    case 'saving':
-      return 'Saving…'
-    case 'saved': {
-      const when = relativeTime(new Date(status.at).toISOString(), now)
-      return when === 'just now' ? 'Saved just now' : `Saved ${when}`
-    }
-    case 'conflict':
-      return 'Not saved — opened somewhere else'
-    case 'blocked':
-      return "Not saved — this project's video can't be opened"
-    case 'error':
-      return "Couldn't save — will retry"
+export class AutosaveConflictError extends Error {
+  constructor(message = 'The stored document is newer than the one being saved.') {
+    super(message)
+    this.name = 'AutosaveConflictError'
   }
 }
 
-/** True when the indicator should read as a problem rather than progress. */
-export function isAutosaveProblem(status: AutosaveStatus): boolean {
-  return status.kind === 'conflict' || status.kind === 'blocked' || status.kind === 'error'
-}
-
-/**
- * A stale-version rejection, as opposed to any other failure.
- *
- * The 409's body is a plain Nest `ConflictException` — a `message` string, with
- * no machine-readable expected/provided versions on it (verified against the
- * live `/api-json`). So the status code is the whole signal, and recovering
- * means re-reading the project rather than reconciling two numbers.
- */
+/** A stale-version rejection, as opposed to any other failure. */
 export function isVersionConflict(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 409
+  return err instanceof AutosaveConflictError
 }
 
 /** Injectable timer, so tests drive the debounce instead of waiting it out. */

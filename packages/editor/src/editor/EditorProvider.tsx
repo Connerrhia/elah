@@ -20,7 +20,7 @@ export interface EditorProviderProps {
   maxHistorySize?: number
   /**
    * Tracks created in the empty project before any user edits. Omit for the
-   * default single video track; pass a fixed list (e.g. video / audio / text)
+   * default lanes; pass a fixed list (e.g. video / audio / text)
    * for a fixed-lane editor.
    */
   initialTracks?: InitialTrackConfig[]

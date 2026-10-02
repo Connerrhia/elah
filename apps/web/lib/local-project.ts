@@ -9,11 +9,9 @@ import {
  * The standalone editor's storage: the composition on `/editor` kept in
  * `localStorage` so a refresh doesn't empty the timeline.
  *
- * `/projects/:id/edit` has a server document and `ProjectDocumentBridge`; the
- * standalone editor has neither, and until now a reload threw the work away
- * without ever having said it wouldn't be kept. This is the same contract in
- * one browser: the engine's `Project` is already plain JSON, so the whole of it
- * is what gets written.
+ * A reload would otherwise throw the work away without ever having said it
+ * wouldn't be kept. The engine's `Project` is already plain JSON, so the whole
+ * of it is what gets written.
  *
  * The decisions live here rather than in the component because `lib/` is the
  * only tree vitest covers, and the two that matter are worth pinning:
@@ -47,16 +45,16 @@ export const LOCAL_PROJECT_BACKUP_KEY = 'myeditor-local-project-backup'
 
 /**
  * The slice of `Storage` this module uses, so tests can hand it a `Map` — the
- * app's vitest run is a node environment with no `localStorage` at all.
+ * app's vitest run (`apps/web/vitest.config.ts`) is a node environment with
+ * no `localStorage` at all.
  */
 export type LocalProjectStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 /**
  * What the stored blob turns into.
  *
- * Three outcomes, matching `ProjectDocumentBridge`'s `Restore`, because two of
- * them put the same empty timeline on screen and only one of them is safe to
- * overwrite.
+ * Three outcomes, because two of them put the same empty timeline on screen and
+ * only one of them is safe to overwrite.
  */
 export type LocalRestore =
   /** Nothing stored yet. The empty editor is the truth; the first edit stores it. */

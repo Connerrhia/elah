@@ -1,32 +1,28 @@
 /**
- * Whether the editor's collapsible regions — the AI workspace on the left,
- * the Properties column on the right, and the composer at the bottom of the
- * AI workspace — are collapsed, kept across a reload.
+ * Whether the editor's collapsible regions — the AI workspace on the left and
+ * the Properties column on the right — are collapsed, kept across a reload.
  *
- * Mirrors `lib/shell/sidebarCollapse` deliberately: same `myeditor-*` key
- * convention, same injectable store so the tests need no DOM, same rule that
- * it never throws and that a corrupt value falls back to the state that costs
- * the user nothing (expanded). Kept in `lib/` because that is the only tree
+ * Follows the `myeditor-*` key convention, takes an injectable store so the
+ * tests need no DOM, never throws, and falls back from a corrupt value to the
+ * state that costs the user nothing (expanded). Kept in `lib/` because that is the only tree
  * this app's vitest run collects.
  */
 
-export type EditorPanelId = 'left' | 'right' | 'composer'
+export type EditorPanelId = 'left' | 'right'
 
 /** Follows the `myeditor-*` convention set by `local-project.ts` and the theme. */
 export const EDITOR_PANEL_COLLAPSED_KEYS: Record<EditorPanelId, string> = {
   left: 'myeditor-editor-left-panel-collapsed',
   right: 'myeditor-editor-right-panel-collapsed',
-  composer: 'myeditor-editor-composer-collapsed',
 }
 
 /** What each region is called in the toggle's label and tooltip. */
 const EDITOR_PANEL_NAMES: Record<EditorPanelId, string> = {
   left: 'AI workspace',
   right: 'properties',
-  composer: 'composer',
 }
 
-/** Narrowed for testability, exactly as `lib/shell/sidebarCollapse` narrows its store. */
+/** Narrowed to the three Storage methods used, so tests can pass a plain object. */
 export type EditorPanelStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 /**

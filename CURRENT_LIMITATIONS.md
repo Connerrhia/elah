@@ -9,11 +9,13 @@
 
 ## Playback & decode
 
-- **Single *video* track (v1).** The decode pipeline and renderer composite
-  multiple clips by `zIndex`, but the system is tuned and tested for one active
-  video track. Heavy multi-track *video* compositing is not yet a supported
-  path. **Audio is multi-track** as of 0.3.0 — `AudioPlaybackController` mixes
-  several audio tracks with per-clip and master volume.
+- **Multiple video tracks are allowed, but not yet tuned for.** Since 0.6.0
+  `addTrack('video')` adds another video track, and video tracks composite in
+  track order (the topmost lane draws on top). The decode pipeline is still
+  best-effort with no scheduler (below), so several video clips decoding at the
+  same time can stall or hold a frame; one active video clip at a time is the
+  tested path. **Audio is multi-track** as of 0.3.0 — `AudioPlaybackController`
+  mixes several audio tracks with per-clip and master volume.
 - **Reverse / backward scrubbing is unstable.** `StreamingFrameProducer` feeds a
   *forward* lookahead window. A backward jump larger than the lookahead is a
   discontinuity: it seeks the demuxer to the nearest keyframe and cold-starts the

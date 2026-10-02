@@ -41,7 +41,7 @@ Three invariants hold everywhere. Do not violate them:
 
 ```bash
 npm run build:packages   # build all packages (apps consume dist/ — see below)
-npm run test             # vitest across core, react, timeline, cli
+npm run test             # vitest across core, react, timeline, editor, cli, apps/web
 npm run typecheck        # tsc --noEmit across all workspaces
 npm run dev              # apps/web on :3000
 npm run lint:tokens      # check --elah-* design token usage

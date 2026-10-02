@@ -6,7 +6,7 @@ import type { ActiveVideoClip } from '../../../resolver/scene'
 import type { LayerContext } from '../layers/types'
 import { TexturePool } from '../TexturePool'
 import type { VideoFrameProvider } from '../../../media/video'
-import { VideoLayer } from '../layers/VideoLayer'
+import { VideoLayer, buildVideoTransformMatrix } from '../layers/VideoLayer'
 
 // ---------------------------------------------------------------------------
 // Minimal WebGL2 mock
@@ -491,5 +491,182 @@ describe('VideoLayer', () => {
         expect(line).not.toContain(name)
       }
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Provider replacement, watch-set hygiene and borrowed-frame sizing
+// ---------------------------------------------------------------------------
+
+type Internals = {
+  _textures: Map<string, { hasContent: boolean }>
+  _openWatchedItemIds: Set<string>
+}
+const internals = (l: VideoLayer): Internals => l as unknown as Internals
+
+function frameOfSize(width: number, height: number): VideoFrame {
+  return { close: vi.fn(), displayWidth: width, displayHeight: height } as unknown as VideoFrame
+}
+
+describe('VideoLayer provider replacement and holdover', () => {
+  let gl: WebGL2RenderingContext
+  let ctx: LayerContext
+  let pool: TexturePool
+
+  beforeEach(() => {
+    gl = createMockGL()
+    ctx = makeCtx(gl)
+    pool = new TexturePool({ maxTextures: 8 })
+  })
+
+  it('keeps the ref count and rebinds a live texture when a drawn clip changes src', () => {
+    const onClipLoad = vi.fn()
+    const providers: Array<ReturnType<typeof makeMockProvider>> = []
+    const layer = new VideoLayer(
+      pool,
+      () => {
+        const p = makeMockProvider()
+        p.getCurrent.mockReturnValue(frameOfSize(640, 360))
+        providers.push(p)
+        return p
+      },
+      { onClipLoad },
+    )
+
+    const v1 = makeClip({ src: 'video://one' })
+    layer.acquire(v1, ctx)
+    layer.draw(v1, ctx)
+    const oldTexture = internals(layer)._textures.get('clip-a')
+    expect(oldTexture?.hasContent).toBe(true)
+    expect(layer.getProviderRefCount('clip-a')).toBe(1)
+
+    onClipLoad.mockClear()
+    const v2 = makeClip({ src: 'video://two' })
+    layer.draw(v2, ctx)
+
+    expect(providers).toHaveLength(2)
+    expect(providers[0].dispose).toHaveBeenCalledTimes(1)
+    // The live clip is still drawn: its ref count must survive the swap.
+    expect(layer.getProviderRefCount('clip-a')).toBe(1)
+    expect(providers[1].markActive).toHaveBeenCalled()
+    expect(onClipLoad).toHaveBeenCalledWith('clip-a', 'loading')
+
+    // Frames land in a fresh, tracked texture — not the disposed one.
+    const newTexture = internals(layer)._textures.get('clip-a')
+    expect(newTexture).toBeDefined()
+    expect(newTexture).not.toBe(oldTexture)
+    expect(newTexture?.hasContent).toBe(true)
+    expect(layer.getTextureCount()).toBe(1)
+    expect(onClipLoad).toHaveBeenLastCalledWith('clip-a', null)
+  })
+
+  it('_disposeProvider clears the open-watch set and reports a null load state', () => {
+    vi.useFakeTimers()
+    try {
+      const onClipLoad = vi.fn()
+      const layer = new VideoLayer(
+        pool,
+        () => {
+          const p = makeMockProvider()
+          Object.defineProperty(p, 'openPromise', { get: () => new Promise<void>(() => {}) })
+          return p
+        },
+        { onClipLoad, idleDisposeMs: 1000 },
+      )
+      const clip = makeClip()
+      layer.acquire(clip, ctx)
+      expect(internals(layer)._openWatchedItemIds.has('clip-a')).toBe(true)
+
+      layer.release('clip-a')
+      onClipLoad.mockClear()
+      vi.advanceTimersByTime(1500)
+
+      expect(layer.getProviderForItemId('clip-a')).toBeUndefined()
+      expect(internals(layer)._openWatchedItemIds.has('clip-a')).toBe(false)
+      expect(onClipLoad).toHaveBeenCalledWith('clip-a', null)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reports an error for a failed re-open after an idle eviction', async () => {
+    vi.useFakeTimers()
+    try {
+      const onClipLoad = vi.fn()
+      let openError: Error | null = null
+      const layer = new VideoLayer(
+        pool,
+        () => {
+          const p = makeMockProvider()
+          Object.defineProperty(p, 'openPromise', { get: () => Promise.resolve() })
+          Object.defineProperty(p, 'openError', { get: () => openError })
+          return p
+        },
+        { onClipLoad, idleDisposeMs: 1000 },
+      )
+      const clip = makeClip()
+      layer.acquire(clip, ctx)
+      layer.release('clip-a')
+      vi.advanceTimersByTime(1500)
+
+      openError = new Error('boom')
+      onClipLoad.mockClear()
+      layer.acquire(clip, ctx)
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(onClipLoad).toHaveBeenLastCalledWith('clip-a', 'error')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('dispose() reports a null load state for every provider and clears the watch set', () => {
+    const onClipLoad = vi.fn()
+    const layer = new VideoLayer(
+      pool,
+      () => {
+        const p = makeMockProvider()
+        Object.defineProperty(p, 'openPromise', { get: () => new Promise<void>(() => {}) })
+        return p
+      },
+      { onClipLoad },
+    )
+    layer.acquire(makeClip({ id: 'a' }), ctx)
+    layer.acquire(makeClip({ id: 'b' }), ctx)
+    onClipLoad.mockClear()
+
+    layer.dispose()
+
+    expect(onClipLoad).toHaveBeenCalledWith('a', null)
+    expect(onClipLoad).toHaveBeenCalledWith('b', null)
+    expect(internals(layer)._openWatchedItemIds.size).toBe(0)
+  })
+
+  it('fits a borrowed holdover frame by its own decoded size, not the stage', () => {
+    const providerA = makeMockProvider()
+    providerA.getCurrent.mockReturnValue(frameOfSize(400, 400))
+    const providerB = makeMockProvider() // still decoding: getCurrent -> null
+    const providers = [providerA, providerB]
+    let n = 0
+    const layer = new VideoLayer(pool, () => providers[n++])
+
+    const clipA = makeClip({ id: 'clip-a', src: 'video://a' })
+    const clipB = makeClip({ id: 'clip-b', src: 'video://b' })
+    layer.acquire(clipA, ctx)
+    layer.draw(clipA, ctx)
+    layer.release('clip-a')
+
+    layer.acquire(clipB, ctx)
+    const setMatrix = gl.uniformMatrix3fv as unknown as { mock: { calls: unknown[][] } }
+    setMatrix.mock.calls.length = 0
+    layer.draw(clipB, ctx)
+
+    expect(setMatrix.mock.calls).toHaveLength(1)
+    const used = setMatrix.mock.calls[0][2] as Float32Array
+    const fitted = buildVideoTransformMatrix(clipB, 1280, 720, 400, 400)
+    const stretched = buildVideoTransformMatrix(clipB, 1280, 720, undefined, undefined)
+    expect(Array.from(fitted)).not.toEqual(Array.from(stretched))
+    expect(Array.from(used)).toEqual(Array.from(fitted))
   })
 })

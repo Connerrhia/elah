@@ -27,10 +27,6 @@ const STORE_NAME = 'snapshots'
  */
 export type MediaLibraryScope = 'local' | `project:${string}`
 
-export function projectScope(projectId: string): MediaLibraryScope {
-  return `project:${projectId}`
-}
-
 /**
  * The storage key for the media library snapshot.
  */

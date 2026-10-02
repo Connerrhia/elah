@@ -34,8 +34,13 @@ export interface UseMediaLibrarySnapshotApi {
    * Put the stored library back and start re-decoding whatever came back
    * without thumbnails. Resolves once the library is populated, so a caller can
    * re-link against it.
+   *
+   * Resolves with the id of every entry in the stored snapshot - the raw list,
+   * *before* `hydrateMediaLibrary` drops unreferenced `blob:` entries - so the
+   * caller can tell which stored file blobs are still wanted. Empty when there
+   * is no snapshot (or hydration is disabled).
    */
-  hydrate: (referencedSrcs: ReadonlySet<string>) => Promise<void>
+  hydrate: (referencedSrcs: ReadonlySet<string>) => Promise<Set<string>>
 }
 
 /**
@@ -53,13 +58,15 @@ export function useMediaLibrarySnapshot(
   { enabled = true }: { enabled?: boolean } = {},
 ): UseMediaLibrarySnapshotApi {
   const hydrate = useCallback(
-    async (referencedSrcs: ReadonlySet<string>) => {
-      if (!enabled) return
+    async (referencedSrcs: ReadonlySet<string>): Promise<Set<string>> => {
+      if (!enabled) return new Set()
       const stored = await readMediaLibrarySnapshot(scope)
-      if (!stored || stored.length === 0) return
+      if (!stored || stored.length === 0) return new Set()
+      const snapshotIds = new Set(stored.map((entry) => entry.id))
       const { needsThumbnail } = hydrateMediaLibrary(stored, { referencedSrcs })
       // Cosmetic and fire-and-forget: a decode that fails costs a filmstrip.
       refreshMissingThumbnails(needsThumbnail)
+      return snapshotIds
     },
     [scope, enabled],
   )

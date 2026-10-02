@@ -48,13 +48,13 @@ export function PreviewLoadingOverlay() {
       {state === 'loading' ? (
         <>
           <span
-            className="h-7 w-7 animate-spin rounded-full border-2 border-white/25 border-t-white/90"
+            className="h-7 w-7 animate-spin rounded-full border-2 border-[color:var(--elah-spinner-track,rgba(255,255,255,0.25))] border-t-[color:var(--elah-spinner-head,rgba(255,255,255,0.9))]"
             aria-hidden="true"
           />
           <span className="sr-only">Loading media</span>
         </>
       ) : (
-        <span className="rounded-md bg-black/70 px-3 py-1.5 text-sm text-white">
+        <span className="rounded-md bg-[var(--elah-overlay-scrim,rgba(0,0,0,0.7))] px-3 py-1.5 text-sm text-[color:var(--elah-overlay-text,#ffffff)]">
           Couldn&apos;t load this video
         </span>
       )}

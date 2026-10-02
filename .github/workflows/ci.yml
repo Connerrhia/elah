@@ -1,0 +1,34 @@
+name: CI
+
+# Runs the release gate from AGENTS.md on every push to main/dev and every
+# pull request: build the packages (apps consume dist/), typecheck every
+# workspace, run the vitest suites. The Next.js site build is left out to keep
+# the check fast; it is part of the manual release gate.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build:packages
+
+      - run: npm run typecheck
+
+      - run: npm run test

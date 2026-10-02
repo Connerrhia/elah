@@ -6,7 +6,7 @@ Written for AI coding tools that get one shot and no repo access — Lovable, Go
 Emergent, v0, bolt.new — as well as repo-aware agents (Claude Code, Codex, Cursor, Gemini CLI).
 Nothing here requires reading another file.
 
-- **Version:** `@elah/editor@0.4.1` · **License:** Apache-2.0
+- **Version:** `@elah/editor@0.6.0` · **License:** Apache-2.0
 - **Repo:** https://github.com/elahlabs/elah · **Docs:** https://www.elah.dev/docs
 
 **Working code, if you can fetch a URL.** Three runnable apps that install this exact version
@@ -233,7 +233,10 @@ Ref handle: `PreviewHandle = { getCanvas(), getRenderer() }`.
 />
 ```
 
-`TimelineRef = { engine, playback, fitToWindow() }`. `TimelineClassNames` has slots for
+`TimelineRef = { engine, playback, fitToWindow(), zoomAtAnchor(nextZoom) }`. `zoomAtAnchor` zooms
+anchored on the playhead when it is in view, else on the viewport centre, so a zoom button or
+slider never scrolls the playhead away — use it instead of a raw `setZoom`. Any number of video
+tracks is supported, and only clips inside the scrolled viewport are mounted. `TimelineClassNames` has slots for
 `root`, `ruler`, `rulerTick`, `rulerLabel`, `track`, `trackLabel`, `lane`, `clip`,
 `clipVideo` / `clipAudio` / `clipText` / `clipImage` (each with an `*Accent` variant),
 and `playhead`.
@@ -260,6 +263,8 @@ and `playhead`.
 | `useTracksStore(selector)` | `tracks`, `clips`, `stage`, `totalFrames`, `canUndo`, `canRedo` |
 | `useSelectionStore(selector)` | `selectedClipIds: Set<string>`, `activeTrackId` + `selectClip`, `toggleClipSelection`, `selectClips`, `clearSelection`, `setActiveTrack` |
 | `useTransitionsStore(selector)` | Transition state |
+| `useTextStylePresetsStore(selector)` | Reusable text looks: the built-in presets (`BUILT_IN_TEXT_STYLE_PRESETS`) plus user-saved ones |
+| `useClipLoadStore(selector)` | `byClipId: Record<clipId, 'loading' \| 'error'>` — clips the preview cannot draw yet. Renderer state: never saved, never undoable |
 | `useMediaLibrary()` / `useAssets()` | `{ assets, getAsset, removeAsset, updateAsset, importFiles, importUrl, importBlob }` |
 | `useResolvedScene(frame?)` | The `Scene` at the current frame — for custom overlays |
 | `useAudioMixer(controller)` | `{ setMasterGain, setTrackGain }` |
@@ -271,7 +276,7 @@ and `playhead`.
 
 Each store hook also carries `.getState()` and `.subscribe()` for imperative use outside
 React. Outside React entirely, use the vanilla stores: `playbackStore`, `tracksStore`,
-`selectionStore`, `transitionsStore`, `mediaLibraryStore`.
+`selectionStore`, `transitionsStore`, `mediaLibraryStore`, `textStylePresetsStore`, `clipLoadStore`.
 
 ### `TimelineEngine`
 
@@ -282,15 +287,23 @@ const engine = useTimelineEngine()
 **Read:** `getProject()` · `getTrack(trackId)` · `getClipsOnTrack(trackId)` ·
 `findClip(clipId)` · `getTotalFrames()` · `canUndo()` · `canRedo()` · `isTrackLocked(trackId)`
 
-**Project:** `setStage(width, height)` · `setMasterVolume(v)` · `loadProject(project)`
+**Project:** `setStage(width, height)` · `setMasterVolume(v)` · `loadProject(project, options?)`
+(`options: { transport?: 'rewind' | 'keep', history?: 'reset' | 'keep' }`; feed it the result of
+`readProjectDocument`, and listen for the `project:loaded` event)
 
-**Tracks:** `addTrack(kind, options?)` · `removeTrack(id)` · `updateTrack(id, updates)` ·
+**Tracks:** `addTrack(kind, options?)` (any number of tracks of any kind, **including several video
+tracks**, which composite in track order with the topmost lane on top; options include `name`, `height`,
+`protected` (user cannot remove it) and `pinned: 'bottom'` (kept below every non-pinned track)) · `removeTrack(id)` · `updateTrack(id, updates)` ·
 `reorderTracks(orderedIds)`
 
 **Clips:** `addClip(options)` · `removeClip(clipId, trackId)` ·
 `updateClip(clipId, trackId, updates)` · `moveClip(clipId, fromTrackId, toTrackId, startFrame)` ·
 `trimClip(clipId, trackId, startFrame, durationFrames)` ·
-`splitClip(clipId, trackId, atFrame)` → `[leftId, rightId] | null` · `cloneClip(clipId, trackId)`
+`splitClip(clipId, trackId, atFrame)` → `[leftId, rightId] | null` · `cloneClip(clipId, trackId)` ·
+`setClipSpeed(clipId, trackId, speed)` (video only, 0.25–4; length follows the speed)
+
+Clips also carry `speed`, `crop` (`{ x, y, width, height }`, 0..1 of the source) and `cornerRadius`
+(0..0.5 of the shorter side) for video and image clips.
 
 **Gestures:** `previewClip(clipId, trackId, updates)` · `commitInteraction(description?)` ·
 `cancelInteraction()`
@@ -366,7 +379,8 @@ interface ExportOptions {
   audioCodec?: 'aac' | 'opus'           // default 'aac'
   videoBitrate?: number                 // bits/s, default 8_000_000
   audioBitrate?: number                 // bits/s, default 128_000
-  outputHeight?: number                 // e.g. 720; width derives from stage aspect
+  outputHeight?: number                 // target SHORT edge, e.g. 720 (portrait or landscape); the
+                                        // other edge derives from the stage aspect, rounded to even
   onProgress?: (p: { frame: number; totalFrames: number }) => void
   signal?: AbortSignal                  // cancel
   audioResolver?: AudioResolver         // custom URL→bytes
@@ -394,8 +408,15 @@ Clip fields are **flat**: `scene.texts[0].content`, `.fontSize`, `.color` — no
 `snapFrame(frame, points, threshold)` · `buildSnapPoints(clipsByTrack, excludeId?)` ·
 `clipsOverlap(a, b)` · `DEFAULT_OVERLAP_TOLERANCE` ·
 `serializeProject(engine)` → string / `deserializeProject(engine, json)` → void ·
+`readProjectDocument(doc)` → `Project` (throws `ProjectDocumentError`) · `relinkProjectMedia(project, assets)` →
+`{ project, relinked, missing }` · `missingMediaSummary(missing)` · `isRecoverableMediaSrc(src)` · `PROJECT_VERSION` ·
 `insertMediaAsset(engine, assetId, opts?)` · `insertElement(engine, payload, opts?)` ·
-`importFiles(files)` / `importUrl(url)` / `importBlob(blob)`
+`growClipToAssetDuration(engine, clipId, expectedFallbackFrames, newDurationSec)` ·
+`importFiles(files)` / `importUrl(url)` / `importBlob(blob)` / `beginImportUrl(url, opts?)` (returns a
+`status: 'pending'` asset at once) · `determineAssetHasAudio(assetId)` · `probeHasAudio(src)` ·
+`BUILT_IN_TEXT_TEMPLATES` · `findTextTemplate(id)` · `applyTextTemplate(template, clip)` → `Partial<Clip>` ·
+`sampleTextAnimation(...)` · `TEXT_ANIMATION_KINDS` · `TEXT_ANIMATION_EASINGS` ·
+`createFrameSequence` · `FrameSequenceController` · `frameSequenceToProject` · `PerfSummary`
 
 ---
 
@@ -564,6 +585,11 @@ export function ImportButton() {
 `{ ok: false, kind, reason }` where reason is `'missing-asset' | 'no-track' | 'locked' |
 'incompatible-track' | 'cancelled'`. `importUrl(url)` and `importBlob(blob)` work the same way.
 
+For a remote URL you want on the timeline *now*, use `beginImportUrl(url)`: it returns a
+`status: 'pending'` asset immediately. Insert the clip with `insertMediaAsset`, then call
+`growClipToAssetDuration(engine, clipId, fallbackFrames, asset.durationSec)` once the asset flips to
+`'ready'`; it grows only into free space and leaves a clip the user already trimmed alone.
+
 ### 7.6 Add a text clip
 
 ```tsx
@@ -719,8 +745,31 @@ if (saved) {
 ```
 
 Serialization stores clip references, not media bytes. Re-import or re-host the media so the
-`src` URLs still resolve. `deserializeProject` throws on invalid JSON or a schema-version
-mismatch — always wrap it in a `try`.
+`src` URLs still resolve. `deserializeProject` throws `Not valid project JSON: …` on bad JSON and a
+`ProjectDocumentError` (`code: 'unreadable' | 'unsupported-version'`) on a document it cannot read
+or one written by a newer build; the engine is left untouched. A document with no `version` stamp is read
+as version 1. Always wrap it in a `try`.
+
+`serializeProject` / `deserializeProject` are a thin facade over `readProjectDocument`. Use the reader
+directly when you want to show a refusal before clearing the editor, and to repair media afterwards:
+
+```ts
+import { readProjectDocument, relinkProjectMedia, missingMediaSummary } from '@elah/editor'
+
+engine.loadProject(readProjectDocument(JSON.parse(saved)))     // throws ProjectDocumentError
+
+// Files the user imported from disk are blob: URLs and do not survive a reload.
+// Once your media library is rebuilt, re-point clips at it and report what is gone:
+const { project, missing } = relinkProjectMedia(engine.getProject(), Object.values(assets))
+engine.loadProject(project, { transport: 'keep', history: 'keep' })  // keep playhead + undo
+const note = missingMediaSummary(missing)                       // e.g. "a.mp4, b.mp4 and 3 more"
+```
+
+Missing clips are never dropped; they stay in place with their name and length so the user can
+supply the file again.
+
+The playback preferences (`zoom`, `volume`, `muted`, `playbackRate`, `loop`, `snapEnabled`) are not part
+of the project: they persist separately in `localStorage`.
 
 ### 7.11 Re-theme with design tokens
 

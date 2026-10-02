@@ -364,6 +364,20 @@
   --elah-info-bg:          #1a2433;
   --elah-info-border:      #355070;
   --elah-info-text:        #c8d8f0;
+
+  /* Scrims and spinners drawn over the preview surface, plus the clip speed
+     badge. Deliberately literal: these sit on top of decoded video, so they
+     read against the footage rather than against the panel palette. Mirrors
+     the same block in packages/editor/src/styles/tokens.css. */
+  --elah-overlay-scrim:    rgba(0, 0, 0, 0.7);
+  --elah-overlay-text:     #ffffff;
+  --elah-overlay-border:   rgba(255, 255, 255, 0.3);
+  --elah-overlay-bg:       rgba(255, 255, 255, 0.1);
+  --elah-overlay-bg-hover: rgba(255, 255, 255, 0.2);
+  --elah-spinner-track:    rgba(255, 255, 255, 0.25);
+  --elah-spinner-head:     rgba(255, 255, 255, 0.9);
+  --elah-clip-badge-bg:    rgba(0, 0, 0, 0.55);
+  --elah-toast-shadow:     0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 /* Figma: audio clips show a tinted waveform on a dark body — teal-green at rest,

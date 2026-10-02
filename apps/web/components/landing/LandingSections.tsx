@@ -1,13 +1,11 @@
 import type { CSSProperties } from 'react'
 import { features, flow, integrationPoints, faq, GITHUB_URL, GET_STARTED_URL } from './landingData'
-
-// Scroll-driven reveal, matching the design. Where animation-timeline is
-// unsupported the keyframe simply runs once on mount — still a graceful entrance.
-const reveal = (range = 'entry 0% entry 30%'): CSSProperties => ({
-  animation: 'lv-rise .7s cubic-bezier(.2,.7,.2,1) both',
-  animationTimeline: 'view()',
-  animationRange: range,
-})
+import { Reveal } from './motion/Reveal'
+import { Stagger, StaggerItem, StaggerGrow } from './motion/Stagger'
+import { Spotlight } from './motion/Spotlight'
+import { Accordion } from './motion/Accordion'
+import { MagneticLink } from './motion/Magnetic'
+import { CopyButton } from './CopyButton'
 
 const eyebrow: CSSProperties = {
   fontFamily: 'var(--font-geist-mono)',
@@ -34,18 +32,17 @@ export function SpecStrip() {
   ]
   return (
     <section style={{ borderTop: '1px solid var(--line2)', borderBottom: '1px solid var(--line2)' }}>
-      <div
+      <Stagger
         style={{
           maxWidth: 1200,
           margin: '0 auto',
           padding: '0 28px',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(215px,1fr))',
-          ...reveal('entry 0% entry 40%'),
         }}
       >
         {specs.map(([label, value], i) => (
-          <div
+          <StaggerItem
             key={label}
             style={{
               padding: i === 0 ? '22px 24px 22px 0' : i === specs.length - 1 ? '22px 0 22px 24px' : '22px 24px',
@@ -56,9 +53,9 @@ export function SpecStrip() {
               {label}
             </div>
             <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: 6 }}>{value}</div>
-          </div>
+          </StaggerItem>
         ))}
-      </div>
+      </Stagger>
     </section>
   )
 }
@@ -68,12 +65,14 @@ export function Architecture() {
     <section style={{ background: 'var(--bg)' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: sectionPad }}>
         <div style={eyebrow}>01 — ARCHITECTURE</div>
-        <h2 style={{ ...heading, margin: '14px 0 8px', ...reveal() }}>Built for precision.</h2>
+        <Reveal as="h2" style={{ ...heading, margin: '14px 0 8px' }}>
+          Built for precision.
+        </Reveal>
         <p style={{ color: 'var(--muted)', fontSize: 16, maxWidth: 540, margin: '0 0 44px', lineHeight: 1.6 }}>
           Every layer of the stack is designed around one principle: determinism. Same input, same output,
           every time.
         </p>
-        <div
+        <Stagger
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(300px,1fr))',
@@ -83,43 +82,43 @@ export function Architecture() {
           }}
         >
           {features.map((f) => (
-            <div
-              key={f.idx}
-              className="lv-feature"
-              style={{
-                background: 'var(--bg)',
-                padding: 26,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 11,
-                ...reveal('entry 0% entry 35%'),
-              }}
-            >
-              <span style={{ fontFamily: 'var(--font-geist-mono)', fontSize: 10.5, color: 'var(--faint)' }}>{f.idx}</span>
-              <h3 style={{ fontSize: 16, margin: 0, fontWeight: 600, letterSpacing: '-0.015em' }}>{f.title}</h3>
-              <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.62, margin: 0, flex: 1, textWrap: 'pretty' }}>
-                {f.body}
-              </p>
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {f.tags.map((t) => (
-                  <span
-                    key={t}
-                    style={{
-                      fontFamily: 'var(--font-geist-mono)',
-                      fontSize: 10.5,
-                      color: 'var(--accent)',
-                      background: 'color-mix(in oklab, var(--accent) 9%, transparent)',
-                      borderRadius: 5,
-                      padding: '2px 8px',
-                    }}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <StaggerItem key={f.idx} className="lv-feature" style={{ background: 'var(--bg)', display: 'flex' }}>
+              <Spotlight
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: 26,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 11,
+                }}
+              >
+                <span style={{ fontFamily: 'var(--font-geist-mono)', fontSize: 10.5, color: 'var(--faint)' }}>{f.idx}</span>
+                <h3 style={{ fontSize: 16, margin: 0, fontWeight: 600, letterSpacing: '-0.015em' }}>{f.title}</h3>
+                <p style={{ color: 'var(--muted)', fontSize: 13.5, lineHeight: 1.62, margin: 0, flex: 1, textWrap: 'pretty' }}>
+                  {f.body}
+                </p>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {f.tags.map((t) => (
+                    <span
+                      key={t}
+                      style={{
+                        fontFamily: 'var(--font-geist-mono)',
+                        fontSize: 10.5,
+                        color: 'var(--accent)',
+                        background: 'color-mix(in oklab, var(--accent) 9%, transparent)',
+                        borderRadius: 5,
+                        padding: '2px 8px',
+                      }}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </Spotlight>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       </div>
     </section>
   )
@@ -130,16 +129,16 @@ export function DataFlow() {
     <section style={{ borderTop: '1px solid var(--line2)', background: 'var(--bg2)' }}>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: sectionPad, textAlign: 'center' }}>
         <div style={eyebrow}>02 — DATA FLOW</div>
-        <h2 style={{ ...heading, margin: '14px 0 44px', textWrap: 'balance', ...reveal() }}>
+        <Reveal as="h2" style={{ ...heading, margin: '14px 0 44px', textWrap: 'balance' }}>
           One mutation funnel.
           <br />
           One pure resolver.
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+        </Reveal>
+        <Stagger gate stagger={0.14} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
           {flow.map((layer, i) => (
             <div key={layer.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               {i > 0 && (
-                <span
+                <StaggerGrow
                   style={{
                     position: 'relative',
                     width: 1,
@@ -162,9 +161,9 @@ export function DataFlow() {
                       animation: 'lv-flowDot 2.6s ease-in-out infinite',
                     }}
                   />
-                </span>
+                </StaggerGrow>
               )}
-              <div
+              <StaggerItem
                 style={{
                   width: '100%',
                   border: '1px solid var(--line)',
@@ -176,7 +175,6 @@ export function DataFlow() {
                   gap: '12px 16px',
                   textAlign: 'left',
                   flexWrap: 'wrap',
-                  ...reveal('entry 0% entry 35%'),
                 }}
               >
                 <span
@@ -209,14 +207,63 @@ export function DataFlow() {
                     </span>
                   ))}
                 </div>
-              </div>
+              </StaggerItem>
             </div>
           ))}
-        </div>
+        </Stagger>
       </div>
     </section>
   )
 }
+
+// The integration snippet as data: one array per line, each token either plain
+// text or [colourKey, text]. Rendered line by line (reveal) and flattened to a
+// string for the copy button, so the two cannot drift apart.
+const syntax = {
+  kw: '#7fb2ff',
+  str: '#8ce0b0',
+  fn: '#e8c57c',
+  tag: '#6fe0d2',
+  num: '#e8a0c0',
+} as const
+type Token = string | readonly [keyof typeof syntax, string]
+const kw = (t: string): Token => ['kw', t]
+const str = (t: string): Token => ['str', t]
+const fn = (t: string): Token => ['fn', t]
+const tag = (t: string): Token => ['tag', t]
+const num = (t: string): Token => ['num', t]
+
+const snippet: Token[][] = [
+  [kw('import'), ' {'],
+  ['  EditorProvider,'],
+  ['  AssetPanel,'],
+  ['  Preview,'],
+  ['  Timeline,'],
+  ['  createDefaultDemuxerFactory,'],
+  ['} ', kw('from'), ' ', str("'@elah/editor'")],
+  [''],
+  [kw('const'), ' demuxerFactory = ', fn('createDefaultDemuxerFactory'), '()'],
+  [''],
+  [kw('export default function'), ' ', fn('App'), '() {'],
+  ['  ', kw('return'), ' ('],
+  ['    <', tag('EditorProvider'), ' fps={', num('30'), '}>'],
+  ['      <', tag('div'), ' style={{ display: ', str("'flex'"), ', height: ', str("'100vh'"), ','],
+  ['                    flexDirection: ', str("'column'"), ' }}>'],
+  ['        <', tag('div'), ' style={{ display: ', str("'flex'"), ', flex: ', num('1'), ' }}>'],
+  ['          <', tag('AssetPanel'), ' style={{ width: ', num('240'), ' }} />'],
+  ['          <', tag('Preview')],
+  ['            demuxerFactory={demuxerFactory}'],
+  ['            style={{ flex: ', num('1'), ' }}'],
+  ['          />'],
+  ['        </', tag('div'), '>'],
+  ['        <', tag('Timeline'), ' fps={', num('30'), '} style={{ height: ', num('240'), ' }} />'],
+  ['      </', tag('div'), '>'],
+  ['    </', tag('EditorProvider'), '>'],
+  ['  )'],
+  ['}'],
+]
+
+const snippetText = snippet.map((line) => line.map((t) => (typeof t === 'string' ? t : t[1])).join('')).join('\n')
 
 export function Integration() {
   return (
@@ -234,12 +281,14 @@ export function Integration() {
       >
         <div>
           <div style={eyebrow}>04 — INTEGRATION</div>
-          <h2 style={{ ...heading, margin: '14px 0 12px', ...reveal() }}>Drop in. Wire. Ship.</h2>
+          <Reveal as="h2" style={{ ...heading, margin: '14px 0 12px' }}>
+            Drop in. Wire. Ship.
+          </Reveal>
           <p style={{ color: 'var(--muted)', fontSize: 15.5, lineHeight: 1.65, margin: '0 0 26px', textWrap: 'pretty' }}>
             The full editor composes in fewer than 20 lines. Bring your own demuxer factory and the preview
             handles decode, render, playback, and audio automatically.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, ...reveal() }}>
+          <Reveal style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {integrationPoints.map((pt) => (
               <div key={pt.code} style={{ display: 'flex', gap: 12, alignItems: 'baseline', fontSize: 14, color: 'var(--muted)' }}>
                 <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)', fontSize: 12 }}>→</span>
@@ -251,17 +300,16 @@ export function Integration() {
                 </span>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
 
-        <div
+        <Reveal
           style={{
             border: '1px solid #232938',
             borderRadius: 12,
             background: '#0a0d14',
             boxShadow: '0 30px 80px rgba(0,0,0,.4)',
             overflow: 'hidden',
-            ...reveal(),
           }}
         >
           <div
@@ -269,7 +317,7 @@ export function Integration() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: '10px 18px',
+              padding: '8px 12px 8px 18px',
               borderBottom: '1px solid #1a1f2b',
               fontFamily: 'var(--font-geist-mono)',
               fontSize: 11.5,
@@ -279,44 +327,30 @@ export function Integration() {
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#00c2ff' }} />
               App.tsx
             </span>
-            <span style={{ color: '#7a858b' }}>@elah/editor</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ color: '#7a858b' }}>@elah/editor</span>
+              <CopyButton text={snippetText} />
+            </span>
           </div>
-          <pre style={{ margin: 0, padding: '20px 22px', fontFamily: 'var(--font-geist-mono)', fontSize: 12, lineHeight: 1.75, color: '#c9d8f5', overflowX: 'auto' }}>
-            <span style={{ color: '#7fb2ff' }}>import</span> {'{'}
-            {'\n  EditorProvider,\n  AssetPanel,\n  Preview,\n  Timeline,\n  createDefaultDemuxerFactory,\n'}
-            {'}'} <span style={{ color: '#7fb2ff' }}>from</span> <span style={{ color: '#8ce0b0' }}>&apos;@elah/editor&apos;</span>
-            {'\n\n'}
-            <span style={{ color: '#7fb2ff' }}>const</span> demuxerFactory = <span style={{ color: '#e8c57c' }}>createDefaultDemuxerFactory</span>()
-            {'\n\n'}
-            <span style={{ color: '#7fb2ff' }}>export default function</span> <span style={{ color: '#e8c57c' }}>App</span>() {'{'}
-            {'\n  '}
-            <span style={{ color: '#7fb2ff' }}>return</span> (
-            {'\n    <'}
-            <span style={{ color: '#6fe0d2' }}>EditorProvider</span> fps={'{'}<span style={{ color: '#e8a0c0' }}>30</span>{'}'}&gt;
-            {'\n      <'}
-            <span style={{ color: '#6fe0d2' }}>div</span> style={'{{'} display: <span style={{ color: '#8ce0b0' }}>&apos;flex&apos;</span>, height: <span style={{ color: '#8ce0b0' }}>&apos;100vh&apos;</span>,
-            {'\n                    '}flexDirection: <span style={{ color: '#8ce0b0' }}>&apos;column&apos;</span> {'}}'}&gt;
-            {'\n        <'}
-            <span style={{ color: '#6fe0d2' }}>div</span> style={'{{'} display: <span style={{ color: '#8ce0b0' }}>&apos;flex&apos;</span>, flex: <span style={{ color: '#e8a0c0' }}>1</span> {'}}'}&gt;
-            {'\n          <'}
-            <span style={{ color: '#6fe0d2' }}>AssetPanel</span> style={'{{'} width: <span style={{ color: '#e8a0c0' }}>240</span> {'}}'} /&gt;
-            {'\n          <'}
-            <span style={{ color: '#6fe0d2' }}>Preview</span>
-            {'\n            '}demuxerFactory={'{'}demuxerFactory{'}'}
-            {'\n            '}style={'{{'} flex: <span style={{ color: '#e8a0c0' }}>1</span> {'}}'}
-            {'\n          '}/&gt;
-            {'\n        </'}
-            <span style={{ color: '#6fe0d2' }}>div</span>&gt;
-            {'\n        <'}
-            <span style={{ color: '#6fe0d2' }}>Timeline</span> fps={'{'}<span style={{ color: '#e8a0c0' }}>30</span>{'}'} style={'{{'} height: <span style={{ color: '#e8a0c0' }}>240</span> {'}}'} /&gt;
-            {'\n      </'}
-            <span style={{ color: '#6fe0d2' }}>div</span>&gt;
-            {'\n    </'}
-            <span style={{ color: '#6fe0d2' }}>EditorProvider</span>&gt;
-            {'\n  )\n'}
-            {'}'}
-          </pre>
-        </div>
+          <Stagger stagger={0.035}>
+            <pre style={{ margin: 0, padding: '20px 22px', fontFamily: 'var(--font-geist-mono)', fontSize: 12, lineHeight: 1.75, color: '#c9d8f5', overflowX: 'auto' }}>
+              {snippet.map((line, li) => (
+                <StaggerItem key={li} as="span" style={{ display: 'block', minHeight: '1.75em' }}>
+                  {line.length === 1 && line[0] === '' ? ' ' : null}
+                  {line.map((t, ti) =>
+                    typeof t === 'string' ? (
+                      t
+                    ) : (
+                      <span key={ti} style={{ color: syntax[t[0]] }}>
+                        {t[1]}
+                      </span>
+                    ),
+                  )}
+                </StaggerItem>
+              ))}
+            </pre>
+          </Stagger>
+        </Reveal>
       </div>
     </section>
   )
@@ -327,34 +361,18 @@ export function Faq() {
     <section style={{ borderTop: '1px solid var(--line2)' }}>
       <div style={{ maxWidth: 780, margin: '0 auto', padding: sectionPad }}>
         <div style={eyebrow}>05 — FAQ</div>
-        <h2 style={{ ...heading, margin: '14px 0 28px', ...reveal() }}>Common questions.</h2>
+        <Reveal as="h2" style={{ ...heading, margin: '14px 0 28px' }}>
+          Common questions.
+        </Reveal>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {faq.map((item) => (
-            <details key={item.q} style={{ borderBottom: '1px solid var(--line2)', ...reveal('entry 0% entry 40%') }}>
-              <summary
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 16,
-                  padding: '19px 0',
-                  fontWeight: 500,
-                  fontSize: 15.5,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                {item.q}
-                <span
-                  className="lv-faq-caret"
-                  style={{ color: 'var(--accent)', fontSize: 19, transition: 'transform .18s', flexShrink: 0, lineHeight: 1 }}
-                >
-                  +
-                </span>
-              </summary>
-              <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 20px', maxWidth: 640, textWrap: 'pretty' }}>
-                {item.a}
-              </p>
-            </details>
+            <Reveal key={item.q} style={{ borderBottom: '1px solid var(--line2)' }}>
+              <Accordion title={item.q}>
+                <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.7, margin: '0 0 20px', maxWidth: 640, textWrap: 'pretty' }}>
+                  {item.a}
+                </p>
+              </Accordion>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -374,7 +392,7 @@ export function Cta() {
           pointerEvents: 'none',
         }}
       />
-      <div
+      <Reveal
         style={{
           maxWidth: 780,
           margin: '0 auto',
@@ -385,7 +403,6 @@ export function Cta() {
           flexDirection: 'column',
           alignItems: 'center',
           gap: 22,
-          ...reveal('entry 0% entry 35%'),
         }}
       >
         <div style={eyebrow}>READY TO BUILD</div>
@@ -396,7 +413,7 @@ export function Cta() {
           elah is open source. Drop in the timeline and preview components, wire your demuxer, and ship.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <a
+          <MagneticLink
             href={GET_STARTED_URL}
             className="lv-accent-btn"
             style={{
@@ -410,7 +427,7 @@ export function Cta() {
             }}
           >
             Get Started
-          </a>
+          </MagneticLink>
           <a
             href={GITHUB_URL}
             target="_blank"
@@ -432,7 +449,7 @@ export function Cta() {
         <span style={{ fontFamily: 'var(--font-geist-mono)', fontSize: 12.5, color: 'var(--faint)' }}>
           <span style={{ color: 'var(--accent)' }}>$</span> npx @elah/cli serve
         </span>
-      </div>
+      </Reveal>
     </section>
   )
 }

@@ -21,7 +21,7 @@ import {
   type MediaAsset,
 } from '@elah/core'
 import { useAudioDropDialogStore } from './audioDropDialog.store'
-import { insertElement, insertMediaAsset, resolveDropPosition } from './insertAsset'
+import { growClipToAssetDuration, insertElement, insertMediaAsset, resolveDropPosition } from './insertAsset'
 
 const originalAudioRequest = useAudioDropDialogStore.getState().request
 const originalAudioRespond = useAudioDropDialogStore.getState().respond
@@ -231,6 +231,35 @@ describe('insertMediaAsset', () => {
     expect(engine.getClipsOnTrack(videoTrack.id)).toHaveLength(1)
   })
 
+  it('keeps the video and its audio on one start frame when only the audio lane is occupied', async () => {
+    const engine = new TimelineEngine({ fps: 30 })
+    const videoTrack = engine.getProject().tracks[0]
+    const audioTrack = engine.addTrack('audio')
+    engine.addClip({
+      trackId: audioTrack.id,
+      type: 'audio',
+      name: 'existing.wav',
+      startFrame: 0,
+      durationFrames: 100,
+      src: 'blob:existing',
+    })
+    addAsset({ id: 'asset-sync', kind: 'video', durationSec: 2, hasAudio: true })
+    useAudioDropDialogStore.setState({ request: vi.fn(async () => 'both' as const) })
+
+    const result = await insertMediaAsset(engine, 'asset-sync', { desiredStartFrame: 10 })
+
+    expect(result.ok).toBe(true)
+    const video = engine.getClipsOnTrack(videoTrack.id)[0]
+    const audio = engine.getClipsOnTrack(audioTrack.id).find((c) => c.name !== 'existing.wav')!
+    expect(audio.startFrame).toBe(video.startFrame)
+    expect(audio.durationFrames).toBe(video.durationFrames)
+    expect(audio.startFrame).toBeGreaterThanOrEqual(100)
+
+    // The video's move is part of the same step as the audio, not its own.
+    expect(engine.undo()).toBe(true)
+    expect(engine.getClipsOnTrack(videoTrack.id)[0]).toMatchObject({ startFrame: 10 })
+  })
+
   it('follows the video clip when the user moves it while the dialog is open', async () => {
     const engine = new TimelineEngine({ fps: 30 })
     const videoTrack = engine.getProject().tracks[0]
@@ -365,6 +394,74 @@ describe('insertElement', () => {
       startFrame: 9,
       durationFrames: 90,
     })
+  })
+})
+
+describe('growClipToAssetDuration', () => {
+  it('grows a placeholder clip to the real duration once probed', () => {
+    const engine = new TimelineEngine({ fps: 30 })
+    const videoTrack = engine.getProject().tracks[0]
+    const clip = engine.addClip({
+      trackId: videoTrack.id,
+      type: 'video',
+      name: 'Pending',
+      src: 'cdn.mp4',
+      startFrame: 0,
+      durationFrames: 150, // 5s fallback @ 30fps
+    })
+
+    growClipToAssetDuration(engine, clip.id, 150, 10)
+
+    expect(engine.getClipsOnTrack(videoTrack.id)[0]).toMatchObject({
+      durationFrames: 300,
+      sourceDurationFrames: 300,
+    })
+  })
+
+  it('clamps growth to the gap before the next clip instead of overlapping it', () => {
+    const engine = new TimelineEngine({ fps: 30 })
+    const videoTrack = engine.getProject().tracks[0]
+    const clip = engine.addClip({
+      trackId: videoTrack.id,
+      type: 'video',
+      name: 'Pending',
+      src: 'cdn.mp4',
+      startFrame: 0,
+      durationFrames: 150,
+    })
+    engine.addClip({
+      trackId: videoTrack.id,
+      type: 'video',
+      name: 'Next',
+      src: 'next.mp4',
+      startFrame: 200,
+      durationFrames: 60,
+    })
+
+    growClipToAssetDuration(engine, clip.id, 150, 10) // wants 300 frames, only 200 available
+
+    expect(engine.getClipsOnTrack(videoTrack.id)[0]).toMatchObject({
+      durationFrames: 200,
+      sourceDurationFrames: 200,
+    })
+  })
+
+  it('leaves the clip alone if the user already trimmed it away from the fallback duration', () => {
+    const engine = new TimelineEngine({ fps: 30 })
+    const videoTrack = engine.getProject().tracks[0]
+    const clip = engine.addClip({
+      trackId: videoTrack.id,
+      type: 'video',
+      name: 'Pending',
+      src: 'cdn.mp4',
+      startFrame: 0,
+      durationFrames: 150,
+    })
+    engine.trimClip(clip.id, videoTrack.id, 0, 90)
+
+    growClipToAssetDuration(engine, clip.id, 150, 10)
+
+    expect(engine.getClipsOnTrack(videoTrack.id)[0].durationFrames).toBe(90)
   })
 })
 

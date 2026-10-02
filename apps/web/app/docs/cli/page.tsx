@@ -164,7 +164,7 @@ npx @elah/cli serve`}
             <li><strong className="text-on-surface">Times are seconds</strong> (floats fine), converted to integer frames at <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">fps</code> (default 30). <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">stage</code> defaults to 1920×1080.</li>
             <li><strong className="text-on-surface">assets</strong> maps names to paths relative to the spec file, or <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">http(s)</code> URLs.</li>
             <li><strong className="text-on-surface">x</strong>/<strong className="text-on-surface">y</strong> are the normalized (0..1) stage position of the clip&apos;s center; <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">scale</code> is relative to native size.</li>
-            <li><strong className="text-on-surface">Overlaps</strong>: video clips must not overlap (single video track, engine-enforced); overlapping text/image/audio clips are automatically placed on additional tracks.</li>
+            <li><strong className="text-on-surface">Overlaps</strong>: the spec places every video clip on one video track, so video clips must not overlap (the build errors; the engine itself supports more video tracks, the spec format does not); overlapping text/image/audio clips are automatically placed on additional tracks.</li>
           </ul>
           <p className="mt-4 mb-4 text-sm leading-relaxed text-on-surface-variant">
             Then build and export in one step:

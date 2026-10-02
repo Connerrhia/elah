@@ -86,10 +86,11 @@ function App() {
 ## Import media
 
 ```ts
-import { importFiles, importUrl, importBlob, useMediaLibrary } from '@elah/editor'
+import { importFiles, importUrl, importBlob, beginImportUrl, useMediaLibrary } from '@elah/editor'
 
 await importFiles(Array.from(fileList))          // local files
-await importUrl('https://example.com/clip.mp4')  // remote URL
+await importUrl('https://example.com/clip.mp4')  // remote URL (waits for metadata)
+const pending = await beginImportUrl('https://example.com/clip.mp4') // returns at once, status: 'pending'
 await importBlob(recordedBlob, { name: 'take-1.webm' })
 
 // Subscribe in React — useMediaLibrary() takes no arguments and returns
@@ -97,6 +98,11 @@ await importBlob(recordedBlob, { name: 'take-1.webm' })
 // with assets in insertion order. `useAssets` is an alias for the same hook.
 const { assets, importFiles: addFiles } = useMediaLibrary()
 ```
+
+`beginImportUrl` is for "add to timeline" from a remote gallery: place a clip right away
+and let it resize itself once the real duration arrives. Pair it with
+`growClipToAssetDuration` (see [`@elah/timeline`](https://www.npmjs.com/package/@elah/timeline)).
+`determineAssetHasAudio` answers whether a video has an audio track.
 
 ### Programmatic insertion (no drag)
 
@@ -107,6 +113,32 @@ import { insertMediaAsset } from '@elah/editor'
 // Returns a typed InsertAssetResult ({ ok, kind, trackId, clipIds } | { ok:false, reason }).
 const result = await insertMediaAsset(engine, assetId, { desiredStartFrame: 0 })
 ```
+
+---
+
+## Multiple video tracks
+
+`engine.addTrack('video')` always adds a lane. Video tracks composite in track order
+(topmost lane draws on top) and a new one lands directly below the last video track.
+
+---
+
+## Save and restore
+
+```ts
+import { serializeProject, deserializeProject } from '@elah/editor'
+
+localStorage.setItem('project', serializeProject(engine))
+deserializeProject(engine, localStorage.getItem('project')!) // throws, engine untouched, if unreadable
+```
+
+For control over the refusal, read first, then load:
+`engine.loadProject(readProjectDocument(JSON.parse(json)))`. `readProjectDocument` throws
+`ProjectDocumentError` (`'unreadable'` or `'unsupported-version'`). Files imported from
+disk are `blob:` URLs that do not survive a reload; after your media library is rebuilt,
+`relinkProjectMedia(project, assets)` re-points clips at it and lists what is `missing`
+(never dropped). Load its result with `{ transport: 'keep', history: 'keep' }` so the
+playhead and undo stack stay put. See [`@elah/core`](https://www.npmjs.com/package/@elah/core).
 
 ---
 

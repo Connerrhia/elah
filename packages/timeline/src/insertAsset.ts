@@ -439,32 +439,54 @@ export async function insertMediaAsset(
     // happen, and `placed` stays the answer.
     if (!audioTarget.ok) return
 
-    if (choice === 'audio-only') engine.removeClip(videoClipId, current.trackId)
+    // "Audio only" has no video clip left to keep in step, so the audio lane
+    // alone decides where it goes.
+    if (choice === 'audio-only') {
+      engine.removeClip(videoClipId, current.trackId)
+      const a = resolveOn(engine, audioTarget.trackId, startFrame, durationFrames)
+      const audio = addMediaClip(
+        engine,
+        audioTarget.trackId,
+        'audio',
+        asset,
+        a.startFrame,
+        a.durationFrames,
+      )
+      result = { ok: true, kind: asset.kind, trackId: audioTarget.trackId, clipIds: [audio.id] }
+      return
+    }
 
-    const a = resolveOn(engine, audioTarget.trackId, startFrame, durationFrames)
+    // "Both": the pair must share one start frame and one length, or the audio
+    // drifts off its picture with no sign in the UI. Resolve against the
+    // occupied ranges of the video lane (minus this clip, which is already
+    // placed) AND the audio lane in a single call. If that moves or trims the
+    // pair, the video clip follows through the engine inside this same batch,
+    // so the whole split stays one undo step.
+    const occupied = [
+      ...clipsOn(engine, current.trackId).filter((c) => c.id !== videoClipId),
+      ...clipsOn(engine, audioTarget.trackId),
+    ]
+    const r = resolveDropPosition(occupied, startFrame, durationFrames)
+    if (r.startFrame !== startFrame || r.durationFrames !== durationFrames) {
+      engine.updateClip(videoClipId, current.trackId, {
+        startFrame: r.startFrame,
+        durationFrames: r.durationFrames,
+      })
+    }
     const audio = addMediaClip(
       engine,
       audioTarget.trackId,
       'audio',
       asset,
-      a.startFrame,
-      a.durationFrames,
+      r.startFrame,
+      r.durationFrames,
     )
-
-    result =
-      choice === 'both'
-        ? {
-            ok: true,
-            kind: asset.kind,
-            trackId: target.trackId,
-            clipIds: [videoClipId, audio.id],
-          }
-        : {
-            ok: true,
-            kind: asset.kind,
-            trackId: audioTarget.trackId,
-            clipIds: [audio.id],
-          }
+    result = {
+      ok: true,
+      kind: asset.kind,
+      trackId: target.trackId,
+      clipIds: [videoClipId, audio.id],
+    }
   }, choice === 'both' ? 'Add audio' : 'Replace with audio')
 
   return result

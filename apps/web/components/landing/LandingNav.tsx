@@ -1,20 +1,47 @@
 'use client'
 
 import { useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion, useScroll, type MotionStyle } from 'framer-motion'
 import Link from 'next/link'
 import { Icon } from './Icon'
 import { navLinks, GITHUB_URL, DISCORD_URL, GET_STARTED_URL } from './landingData'
 import { trackEvent } from '@/lib/analytics'
 import { currentVersion } from '@/config/changelog'
+import { useScrollDirection } from './motion/useScrollDirection'
 
 const linkStyle = { color: 'var(--muted)', padding: '6px 11px', borderRadius: 8 } as const
 
 export function LandingNav() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [focusWithin, setFocusWithin] = useState(false)
+  const reduce = useReducedMotion()
+  const { hidden, compact } = useScrollDirection(120, 80)
+  const { scrollYProgress } = useScroll()
+
+  // Never hide while the mobile menu is open or focus is inside the bar.
+  const tucked = !reduce && hidden && !menuOpen && !focusWithin
+  const shrunk = !reduce && compact && !menuOpen
+
+  // --lv-progress drives the ::after filament (landing.css) as a scroll-progress
+  // bar; framer writes it straight to the element, no re-render. Omitted under
+  // reduced motion so the CSS fallback (a full, static filament) applies.
+  const navStyle = reduce ? undefined : ({ '--lv-progress': scrollYProgress, transformOrigin: '50% 0%' } as unknown as MotionStyle)
 
   return (
-    <div className="lv-nav-shell">
-      <nav className="lv-nav" data-open={menuOpen}>
+    <motion.div
+      className="lv-nav-shell"
+      animate={{ y: tucked ? '-140%' : '0%' }}
+      transition={{ duration: reduce ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}
+      onFocusCapture={() => setFocusWithin(true)}
+      onBlurCapture={() => setFocusWithin(false)}
+    >
+      <motion.nav
+        className="lv-nav"
+        data-open={menuOpen}
+        style={navStyle}
+        animate={{ scale: shrunk ? 0.965 : 1 }}
+        transition={{ duration: reduce ? 0 : 0.3, ease: [0.16, 1, 0.3, 1] }}
+      >
         <div
           style={{
             padding: '5px 6px 5px 16px',
@@ -159,10 +186,16 @@ export function LandingNav() {
           </button>
         </div>
 
+        <AnimatePresence>
         {menuOpen && (
-          <div
+          <motion.div
+            key="panel"
             data-lv-mobile
             className="lv-nav-panel"
+            initial={reduce ? false : { opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -10 }}
+            transition={{ duration: reduce ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
             style={{
               borderTop: '1px solid var(--line2)',
               padding: '6px 20px 14px',
@@ -209,9 +242,10 @@ export function LandingNav() {
             >
               <span style={{ color: 'var(--accent)' }}>v{currentVersion}</span> · What&apos;s new — GitHub ↗
             </a>
-          </div>
+          </motion.div>
         )}
-      </nav>
-    </div>
+        </AnimatePresence>
+      </motion.nav>
+    </motion.div>
   )
 }

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Icon } from './Icon'
 import { CardHeader } from './CardHeader'
 import { libraries } from './landingData'
+import { Spotlight } from './motion/Spotlight'
 
 export function LandingLibraries() {
   return (
@@ -26,8 +27,9 @@ export function LandingLibraries() {
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 18 }}>
           {libraries.map((lib) => (
-            <div
+            <Spotlight
               key={lib.pkg}
+              lift={4}
               className="lv-pgcard"
               style={{
                 border: '1px solid var(--line)',
@@ -66,7 +68,7 @@ export function LandingLibraries() {
                   <Icon name="arrow_forward" size={15} />
                 </Link>
               </div>
-            </div>
+            </Spotlight>
           ))}
         </div>
       </div>
