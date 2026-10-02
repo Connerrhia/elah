@@ -366,10 +366,12 @@ timeline**. Additive — no breaking changes to the 0.2.x public API.
 
 [0.6.0]: https://github.com/elahlabs/elah/releases/tag/v0.6.0
 [@elah/cli 0.1.2]: https://github.com/elahlabs/elah/releases/tag/cli-v0.1.2
+[0.4.1]: https://github.com/elahlabs/elah/releases/tag/v0.4.1
 [0.4.0]: https://github.com/elahlabs/elah/releases/tag/v0.4.0
 [0.3.2]: https://github.com/elahlabs/elah/releases/tag/v0.3.2
 [0.3.1]: https://github.com/elahlabs/elah/releases/tag/v0.3.1
 [0.3.0]: https://github.com/elahlabs/elah/releases/tag/v0.3.0
 [0.2.1]: https://github.com/elahlabs/elah/releases/tag/v0.2.1
 [0.2.0]: https://github.com/elahlabs/elah/releases/tag/v0.2.0
+[@elah/cli 0.1.1]: https://github.com/elahlabs/elah/releases/tag/cli-v0.1.1
 [@elah/cli 0.1.0]: https://github.com/elahlabs/elah/releases/tag/cli-v0.1.0

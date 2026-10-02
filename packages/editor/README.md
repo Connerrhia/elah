@@ -2,7 +2,7 @@
 
 The full Elah video editor SDK for React. Combines the core engine, timeline UI, WebGL2 renderer, media library, and export pipeline into a single package.
 
-Ships `EditorProvider`, `Preview` (WebGL2 canvas + interactive transform overlays), `Timeline`, `AssetPanel`, `SourcePanel`, and `ElementsPanel`, and re-exports the public `@elah/core`, `@elah/react`, and `@elah/timeline` API — so most apps only ever import from `@elah/editor`. (Renderer and debug internals are the exception; import those from `@elah/core` directly.) Supports video, image, text, **shape**, and **freehand** clips, **multi-track audio**, and MP4 export.
+Ships `EditorProvider`, `Preview` (WebGL2 canvas + interactive transform overlays), `Timeline`, `AssetPanel`, `SourcePanel`, and `ElementsPanel`, and re-exports the public `@elah/core`, `@elah/react`, and `@elah/timeline` API — so most apps only ever import from `@elah/editor`. (Renderer and debug internals are the exception; import those from `@elah/core` directly.) Supports video, image, text, **shape**, and **freehand** clips, **multiple video tracks**, **multi-track audio**, and MP4 export.
 
 [![npm](https://img.shields.io/npm/v/@elah/editor)](https://www.npmjs.com/package/@elah/editor)
 [![gzip size](https://img.shields.io/badge/gzip-~63%20KiB%20full%20SDK-brightgreen)](../../BUNDLE_STRATEGY.md)
@@ -123,6 +123,34 @@ const result = await insertMediaAsset(engine, assetId, { desiredStartFrame: 0 })
 
 ---
 
+## Preview overlays, crop and speed
+
+`<Preview>` paints the interactive overlays for you. **Text** clips: drag, resize, a rotate knob
+(Shift snaps to 15°) and inline edit. **Video and image** clips (`MediaTransformOverlay`): drag,
+8 resize handles with non-uniform scale (Shift keeps the aspect ratio), and a Resize/Crop toggle
+that edits `Clip.crop`. There is no rotate handle for video or image clips; the box tilts with
+`transform.rotation`, which you set through the engine. Clip speed (`engine.setClipSpeed`,
+0.25–4) and `Clip.cornerRadius` are engine-level fields.
+
+---
+
+## Text templates and frame sequences
+
+```ts
+import { BUILT_IN_TEXT_TEMPLATES, applyTextTemplate, createFrameSequence, frameSequenceToProject } from '@elah/editor'
+
+engine.updateClip(clip.id, clip.trackId, applyTextTemplate(BUILT_IN_TEXT_TEMPLATES[0], clip)) // one undo entry
+```
+
+14 built-in looks with layered entry/exit motion (`MotionSpec`). A template's `stagger` and
+`tracking` are data that `applyTextTemplate` ignores, and rotation motion has no effect on shape
+clips. Transitions are `fade`, `slide` and `wipe` (`slide` goes left only for `direction: 'left'`,
+`wipe` ignores direction). Frame sequences, `snapshotMediaLibrary` / `hydrateMediaLibrary` and the
+rest are documented in [`@elah/core`](https://www.npmjs.com/package/@elah/core); everything is
+re-exported from this package.
+
+---
+
 ## Save and restore
 
 ```ts
@@ -149,6 +177,7 @@ import { exportVideo } from '@elah/editor'
 
 const blob = await exportVideo(engine.getProject(), {
   videoBitrate: 8_000_000,
+  outputHeight: 1080, // the stage's short edge: 1920×1080 landscape or 1080×1920 portrait
   onProgress: ({ frame, totalFrames }) => {
     console.log(`${Math.round((frame / totalFrames) * 100)}%`)
   },
@@ -191,7 +220,7 @@ want the hooks without the timeline UI. Use `@elah/cli` for automation,
 AI-generation pipelines, and server-side rendering.
 
 **One active project per page.** `@elah/core`'s stores (`tracksStore`,
-`playbackStore`, `selectionStore`, `transitionsStore`, `mediaLibraryStore`) are
+`playbackStore`, `selectionStore`, `transitionsStore`, `mediaLibraryStore`, `textStylePresetsStore`, `clipLoadStore`) are
 module-level singletons, and `<EditorProvider>` wires the `TimelineEngine` /
 `PlaybackEngine` it creates into those same shared stores. Mounting a second
 `<EditorProvider>` on the same page (two independent projects at once) will have
@@ -205,7 +234,7 @@ tab/window/iframe.
 
 - [Website](https://www.elah.dev)
 - [GitHub](https://github.com/elahlabs/elah)
-- [Discord](https://discord.gg/8CeZ2XbPy)
+- [Discord](https://discord.gg/qKJXvc4Pwu)
 - [Headless CLI — @elah/cli](https://www.npmjs.com/package/@elah/cli)
 - [License](https://github.com/elahlabs/elah/blob/main/LICENSE)
 - [Commercial licensing](mailto:paul@elah.dev)

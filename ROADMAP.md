@@ -29,10 +29,16 @@ For the things that are known-incomplete today, see
 | Audio playback | `AudioPlaybackController` on the `PlaybackEngine` clock |
 | Aspect ratio | Contain-fit viewport + per-clip object-fit; switchable stage via `setStage` |
 | **Export** | `exportVideo()` → worker → OffscreenCanvas frame render → mediabunny MP4 mux, with main-thread audio mix |
-| **Video & image transform overlay** | `MediaTransformOverlay` — click-select, drag-move, corner-drag uniform scale; writes `transform` through `previewClip`/`commitInteraction` (one undo per gesture); export parity automatic (transform already flowed through both renderers) |
+| **Video & image transform overlay** | `MediaTransformOverlay` — click-select, drag-move, 8 resize handles with non-uniform scale (Shift keeps aspect), Resize/Crop toggle; writes `transform` through `previewClip`/`commitInteraction` (one undo per gesture); export parity automatic (transform already flowed through both renderers) |
 | **Timeline thumbnails + waveforms** | Filmstrip tiles and real waveform peaks per asset; generated once on drop, cached on `MediaAsset`; displayed in `ClipBlock` |
 | **Audio-on-drop dialog** | 3-choice modal on video drop with audio; both clips in one `engine.batch` (one undo entry) |
-| **Fade transition** | Snapshot-overlay architecture: `resolveTimeline` drives opacity; `TransitionOverlay` fades a canvas snapshot via CSS; export mirrors with `globalAlpha=1-t`; `Scene.transitions` fully typed and populated |
+| **Transitions** (`fade` / `slide` / `wipe`) | Snapshot-overlay architecture: `resolveTimeline` drives opacity; `TransitionOverlay` fades, translates or clips a canvas snapshot via CSS; export mirrors it in `ExportWorker`; `Scene.transitions` fully typed and populated. `slide` goes left only for `direction: 'left'`; `wipe` ignores direction |
+| **Multiple video tracks** (0.6.0) | `addTrack('video')` adds a lane; video lanes composite in track order, topmost on top. Decode is still unscheduled |
+| **Clip speed, crop, corner radius** (0.6.0) | `Clip.speed` (0.25–4, honoured by export), `Clip.crop`, `Clip.cornerRadius`; crop editable in `MediaTransformOverlay` |
+| **Text templates & layered motion** (0.6.0) | 14 `BUILT_IN_TEXT_TEMPLATES`, `applyTextTemplate`, `MotionSpec` entry/exit; template `stagger`/`tracking` are not executed |
+| **Frame sequences** (0.6.0) | `createFrameSequence`, `FrameSequenceController`, `frameSequenceToProject` |
+| **Stored projects & library snapshot** (0.6.0) | `readProjectDocument`, `relinkProjectMedia`, `loadProject` options + `project:loaded`; `snapshotMediaLibrary` / `hydrateMediaLibrary` (host supplies storage) |
+| **Protected / pinned tracks** (0.6.0) | `Track.protected`, `Track.pinned: 'bottom'` |
 
 ---
 
@@ -57,20 +63,21 @@ Planned responsibilities (none implemented yet):
 - **Transition synchronization** — keep both sides of an overlap decoded so a
   crossfade never shows a black frame.
 
-This is the seam that `Scene.transitions` (reserved, empty today) and the
+This is the seam that the transition snapshot overlay (`Scene.transitions`) and the
 `StreamingFrameProducer` lookahead/hysteresis logic are shaped to grow into.
 
 ---
 
 ## Feature backlog
 
-- **Rotation handle for video/image** — `transform.rotation` already flows through both renderers; the interactive handle in `MediaTransformOverlay` is the only missing piece
-- **Slide / wipe transitions** — architecture in place (snapshot overlay + `Scene.transitions`); CSS `transform` on the snapshot div + matching export pass in `ExportWorker`
+- **Rotation handle for video/image** — `transform.rotation` already flows through both renderers; the interactive handle in `MediaTransformOverlay` is the only missing piece (text clips already have a rotate knob)
+- **Transition polish** — `slide`/`wipe` shipped, but `slide` only goes left or right, `wipe` ignores `direction`, and `'up'`/`'down'` are typed but unimplemented
+- **Shape rotation + template stagger/tracking** — shape renderers do not apply `transform.rotation` (so `spin` is text-only); `applyTextTemplate` ignores a template's `stagger` and `tracking`
 - **Playback correctness** — reverse scrub stability, predictive frame caching, black-frame elimination at clip boundaries; requires the scheduler layer (see above)
 - **Export frame-accuracy** — half-frame phase offset between preview (center-of-frame) and export (start-of-frame); golden-frame parity harness
-- Multi-track **video** compositing beyond the current single-video-track v1 path (multi-track **audio** shipped in 0.3.0)
+- Multi-track **video** *tuning* — multiple video tracks shipped in 0.6.0 (multi-track **audio** in 0.3.0), but several simultaneously decoding clips still need the scheduler layer above
 - Effects / filters / animation (per-clip shader passes via a new layer)
-- Asset persistence (IndexedDB / OPFS) so the library survives reload
+- Asset persistence — **partly shipped in 0.6.0**: `snapshotMediaLibrary` / `hydrateMediaLibrary` and `readProjectDocument` / `relinkProjectMedia` are the seam, with the host supplying storage. Still open: a built-in IndexedDB / OPFS adapter and storing the bytes of locally imported files (`blob:` URLs do not survive a reload)
 - WebGPU backend behind the existing `Renderer` interface
 
 ---

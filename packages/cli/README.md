@@ -15,7 +15,7 @@ Headless command-line runtime for the Elah video engine. A thin consumer of
 npm install -g @elah/cli
 ```
 
-Or without installing, via `npx @elah/cli <command>`. Requires Node >= 18.17.
+Or without installing, via `npx @elah/cli <command>`. Requires Node >= 18.17. Version 0.1.2 depends on `@elah/core@^0.6.0`.
 `export`/`build --export`/`serve` additionally require a system Google Chrome
 (or `--browser <path>` / `ELAH_BROWSER`) — see [Serve mode](#serve-mode) and
 [Docker](#docker) for headless environments.
@@ -28,9 +28,15 @@ Or without installing, via `npx @elah/cli <command>`. Requires Node >= 18.17.
 elah split  --project <in.json> --clip <clipId> --at <frame|timecode> [--out <out.json>]
 elah trim   --project <in.json> --clip <clipId> [--start <frame|timecode>] [--duration <frames|timecode>] [--out <out.json>]
 elah export --project <in.json> --out <file.mp4> [--codec avc|vp9|vp8] [--height <N>]
-elah build  --spec <spec.json> [--out <project.json>] [--export <file.mp4>]
+            [--video-bitrate <bps>] [--audio-bitrate <bps>] [--browser <path>] [--headed] [--timeout <s>]
+elah build  --spec <spec.json> [--out <project.json>] [--export <file.mp4>] [export options]
 elah serve  [--port <n>] [--host <addr>] [--concurrency <n>] [--media-root <dir>]
+            [--codec avc|vp9|vp8] [--height <N>] [--video-bitrate <bps>] [--audio-bitrate <bps>]
+            [--browser <path>] [--timeout <s>] [--verbose]
 ```
+
+`--height` is the target for the stage's **short** edge (`1080` = 1920×1080 landscape or
+1080×1920 portrait); the other edge follows the stage's aspect ratio, rounded to an even number.
 
 `split`, `trim` and `build` run in plain Node against the engine. `export`
 launches the system Google Chrome headlessly (or `--browser <path>` /
@@ -44,8 +50,8 @@ output is identical to Editor output by construction. Exit codes: `0` success,
 ## The build spec — the AI-generation contract
 
 `elah build` consumes a seconds-based spec, probes each media asset's real
-duration, and constructs the project through `TimelineEngine`, so overlaps,
-track caps and source bounds are all validated with precise, path-addressed
+duration, and constructs the project through `TimelineEngine`, so overlaps
+and source bounds are validated with precise, path-addressed
 errors (`clips[2].duration must be …`) that a generating model can self-correct
 from.
 
@@ -82,8 +88,10 @@ Rules:
 - **text** clips need `text` + `duration`; **image** clips need `duration`.
 - **`x`/`y`** are the normalized (0..1) stage position of the clip's center;
   `scale` is relative to native size.
-- **Overlaps**: every spec video clip is placed on one video track, so video clips must not overlap (the build errors; the engine itself supports more video tracks, the spec format does not);
-  overlapping text/image/audio clips are automatically placed on additional
+- **Overlaps**: every spec video clip is placed on **one** video track, so overlapping
+  video clips are a **spec error** — the build fails, naming the clips. (Since 0.1.2; the engine
+  itself allows several video tracks, but the spec has no way to say which one a clip belongs
+  to.) Overlapping text, image and audio clips are automatically placed on additional
   tracks. Note: a clip bumped to a later track renders *beneath* the one it
   overlaps — list the clip you want on top first.
 - Unknown or misspelled fields are rejected by name.
@@ -124,6 +132,12 @@ await session.close()
 
 Errors throw `CliError` (aliased `ElahError`) with a `.message` that is
 already the human-readable, path-addressed text (`clips[2].duration must be …`).
+
+Also exported: `validateSpec` / `specToProject` (the spec layer on its own), `probeMedia`,
+`startServe` (the `elah serve` server, with `Semaphore`), `CODECS`, and the types `BuildSpec`,
+`SpecClip`, `RenderSession`, `RenderJobOptions`, `ProgressPayload`, `ServeOptions` and `Project`.
+`exportProject` and `session.render` take `outputHeight` (short edge), `videoCodec`,
+`videoBitrate`, `audioBitrate` and `timeoutMs`.
 
 ---
 
@@ -172,7 +186,7 @@ A Dockerfile that installs branded Chrome + fonts and runs `elah serve` is at
   editor-page vs harness-page environment delta in the AAC encode stage —
   both pipelines are individually deterministic).
 
-Full documentation lands with the release phase; see `elah --help`.
+See `elah --help` for the full flag list.
 
 ---
 

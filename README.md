@@ -7,7 +7,7 @@
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 [![types](https://img.shields.io/npm/types/@elah/editor)](https://www.npmjs.com/package/@elah/editor)
 
-[**Website**](https://www.elah.dev) · [**Docs**](https://www.elah.dev/docs) · [**Playground**](https://www.elah.dev/playgrounds) · [**Changelog**](https://www.elah.dev/changelog) · [**npm**](https://www.npmjs.com/package/@elah/editor) · [**Discord**](https://discord.gg/8CeZ2XbPy)
+[**Website**](https://www.elah.dev) · [**Docs**](https://www.elah.dev/docs) · [**Playground**](https://www.elah.dev/playgrounds) · [**Changelog**](https://www.elah.dev/changelog) · [**npm**](https://www.npmjs.com/package/@elah/editor) · [**Discord**](https://discord.gg/qKJXvc4Pwu)
 
 ![Elah video editor — timeline, WebGL2 preview, and export running in the browser](./docs/demo.gif)
 
@@ -16,6 +16,8 @@ Using the React layer (`@elah/editor`):
 ```bash
 npm install @elah/editor lucide-react
 ```
+
+(Elah ships five packages — `@elah/core`, `@elah/react`, `@elah/timeline`, `@elah/editor` and `@elah/cli`. `@elah/editor` pulls in the first three and re-exports their API; see [Install](#install).)
 
 ```tsx
 // Import all three stylesheets once at your app root — each package compiles
@@ -79,8 +81,8 @@ Three goals shape every decision:
 | **Real video playback** (WebCodecs decode + mediabunny demux) | ✅ Working — push-based `StreamingFrameProducer`, copy-and-close frame cache |
 | **`<Preview>` component** (mounts renderer + drives RAF) | ✅ Working — library component in `@elah/editor` |
 | **Project aspect ratio / letterbox** | ✅ Working — canvas `gl.viewport` contain-fit + per-clip object-fit **contain** (off-aspect clips letterboxed *within* the frame, never stretched); switchable stage aspect via `TimelineEngine.setStage` (16:9 ↔ 9:16) with a `<StageBorder>` frame outline |
-| **Text overlays** (GPU `TextLayer` + interactive `TextOverlay`) | ✅ Working — paint via 2D-canvas→texture; drag / resize / inline-edit; `transform.scale` (re-rasterized to stay crisp) + `transform.rotation` applied |
-| **Video & image transform overlay** (`MediaTransformOverlay`) | ✅ Working — click-select, drag-move, corner-drag uniform scale for video and image clips; `transform` flows to both renderers so export matches preview automatically |
+| **Text overlays** (GPU `TextLayer` + interactive `TextOverlay`) | ✅ Working — paint via 2D-canvas→texture; drag / resize / inline-edit; rotate knob (Shift snaps to 15°); `transform.scale` (re-rasterized to stay crisp) + `transform.rotation` applied |
+| **Video & image transform overlay** (`MediaTransformOverlay`) | ✅ Working — click-select, drag-move, 8 resize handles (4 corners + 4 edges) with non-uniform scale (**Shift** keeps aspect), and a Resize/Crop toggle that edits `Clip.crop`; `transform` flows to both renderers so export matches preview automatically. There is **no rotate handle** for video/image clips (text clips have one) |
 | **Audio playback** (`AudioPlaybackController` on the `PlaybackEngine` clock) | ✅ Working — **multi-track**, per-clip control, master/track volume via `useAudioMixer` / `useTrackLevels` / `useMasterVolume` (from `@elah/react`); mounted by `<Preview enableAudio>` |
 | **Image clips** (GPU `ImageLayer`) | ✅ Working — static image load → textured quad, same object-fit contain as video; decode cache warming (`warmImageSrc`, `preloadProjectImages`) |
 | **Shape & freehand clips** (GPU `ShapeLayer`, `FreehandLayer`) | ✅ Working — `createShapeClip` / `createFreehandClip`; resolver exposes `scene.shapes` + `scene.freehand`; interactive `ShapeOverlay` for select / move / scale |
@@ -90,9 +92,15 @@ Three goals shape every decision:
 | **Headless CLI** (`@elah/cli` — `split` / `trim` / `build` / `export`) | ✅ Working — engine edits in plain Node; `export` runs core's real `exportVideo` in headless Chrome, so CLI output matches editor output by construction |
 | **AI build spec** (`elah build --spec spec.json --export out.mp4`) | ✅ Working — seconds-based JSON spec → validated project via `TimelineEngine`; path-addressed errors (`clips[2].duration must be …`) a generating model can self-correct from |
 | **HTTP render server** (`elah serve` + Docker) | ✅ Working — long-lived warm-browser session; `POST /render` takes a build spec, returns MP4 bytes; `/healthz`, `--concurrency` guard with `503 + Retry-After`; Dockerfile ships Chrome + fonts |
-| **Fade transitions** | ✅ Working — snapshot-overlay architecture: resolver sets `fromClip.opacity=0`/`toClip.opacity=1`; `TransitionOverlay` fades a frozen canvas snapshot via CSS; export mirrors with `globalAlpha=1-t` |
-| Slide / wipe transitions | 🟡 Partial — architecture in place; only fade implemented |
-| Rotation handle for video/image | 🟡 Partial — `transform.rotation` already flows through both renderers; interactive overlay handle not yet built |
+| **Transitions** (`fade` / `slide` / `wipe`) | ✅ Working — snapshot-overlay architecture: resolver sets `fromClip.opacity=0`/`toClip.opacity=1`; `TransitionOverlay` fades, translates or clips a frozen canvas snapshot via CSS; export mirrors it (`globalAlpha=1-t` for fade). `slide` moves left for `direction: 'left'` and right for anything else; `wipe` ignores `direction`; there is no up/down |
+| Rotation handle for video/image | ⚪ Not built — `transform.rotation` flows through both renderers but is set through the engine only; the box tilts, there is no handle. Text clips have a rotate knob |
+| **Multiple video tracks** (0.6.0) | ✅ Working — `addTrack('video')` adds a lane; video tracks composite in track order (topmost lane on top). Decode is still unscheduled, so one active video clip at a time is the tested path |
+| **Clip speed, crop & corner radius** (0.6.0) | ✅ Working — `Clip.speed` (0.25–4, `engine.setClipSpeed`, honoured by export), `Clip.crop` (normalized source window), `Clip.cornerRadius` (0–0.5) |
+| **Text templates & layered motion** (0.6.0) | ✅ Working — 14 `BUILT_IN_TEXT_TEMPLATES`; `applyTextTemplate` returns an undoable `Partial<Clip>` patch; entry/exit via `TextAnimation` `inMotion` / `outMotion` (`MotionSpec`). A template's `stagger` and `tracking` are data only — nothing in the packages runs them. `spin` and rotation channels are text-only: shape renderers do not apply rotation |
+| **Frame sequences** (0.6.0) | ✅ Working — `createFrameSequence`, `FrameSequenceController` (clock, drag-to-scrub, `wrap`/`pingpong`), `createFramePreloader`, `frameSequenceToProject` |
+| **Stored project documents** (0.6.0) | ✅ Working — `readProjectDocument` (total reader: a `Project` or a `ProjectDocumentError`), `relinkProjectMedia` (reports unrecoverable `blob:` clips as `missing`, never drops them), `engine.loadProject(project, { transport, history })`, `project:loaded` event |
+| **Media-library snapshot / hydrate** (0.6.0) | ✅ Working — `snapshotMediaLibrary` / `hydrateMediaLibrary` / `refreshMissingThumbnails` give a host the seam to carry asset metadata and thumbnails across a page load (storage is the host's; core ships no adapter). Bytes of locally imported files (`blob:` URLs) are not persisted |
+| **Protected / pinned tracks** (0.6.0) | ✅ Working — `Track.protected` (the user cannot remove it) and `Track.pinned: 'bottom'` (`addTrack` keeps the lane below every non-pinned track) |
 | Scheduler / predictive frame caching | ⚪ Not started — next architectural layer |
 
 See [`ROADMAP.md`](./ROADMAP.md) for current state and the next layer,
@@ -100,9 +108,10 @@ See [`ROADMAP.md`](./ROADMAP.md) for current state and the next layer,
 [`packages/core/src/renderer/architecture.md`](./packages/core/src/renderer/architecture.md)
 for the GPU render + decode pipeline in depth.
 
-> **Single-video-track is the current v1 constraint** — the video decode
-> pipeline is not yet designed for multi-track *video* compositing. Audio is
-> multi-track as of 0.3.0.
+> **Multiple video tracks are allowed as of 0.6.0** (audio has been multi-track
+> since 0.3.0), but the decode pipeline has no scheduler yet, so several video
+> clips decoding at once can stall — see [`CURRENT_LIMITATIONS.md`](./CURRENT_LIMITATIONS.md).
+> The headless build spec still places every video clip on one track.
 
 ---
 
@@ -119,7 +128,7 @@ For the full architecture document, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 ```
 elah/
 ├── README.md                     # this file
-├── CHANGELOG.md                  # per-release changes (all three packages)
+├── CHANGELOG.md                  # per-release changes (all five packages)
 ├── ARCHITECTURE.md               # the engine architecture in depth
 ├── ROADMAP.md                    # current state + next architectural layer
 ├── CURRENT_LIMITATIONS.md        # known gaps and trade-offs
@@ -170,13 +179,15 @@ Cloning the repo to develop Elah itself (not just consume the npm package):
 git clone https://github.com/elahlabs/elah.git
 cd elah
 npm install
-npm run build:packages   # build @elah/core, @elah/timeline, @elah/editor
+npm run build:packages   # build @elah/core, @elah/react, @elah/timeline, @elah/editor, @elah/cli
 npm run dev              # starts apps/web at http://localhost:3001
 npm run typecheck
 ```
 
-> The apps consume the **built `dist/`** of each `@elah/*` package, so after
-> editing package source run `npm run build:packages` again to see the change.
+> Packages resolve to their built `dist/`, so after editing package source run
+> `npm run build:packages` again to see the change. The one exception is
+> `apps/web`, which aliases `@elah/*` straight to `packages/*/src` and picks up
+> source edits without a rebuild (see [`AGENTS.md`](./AGENTS.md)).
 
 Then open the editor, drag a file into the asset panel, drop it on the timeline, and hit **Space** to play. Keyboard shortcuts:
 
@@ -237,6 +248,7 @@ function App() {
     engine.addClip({
       trackId: track.id,
       type: 'video',
+      src: 'https://example.com/clip.mp4', // video/audio/image clips need a src
       name: 'My clip',
       startFrame: 0,
       durationFrames: 90,
@@ -260,7 +272,7 @@ function App() {
 `<Preview>` mounts the WebGL2 renderer and drives the RAF loop for you. It reads
 the engines from `EditorProvider` context and renders the resolved `Scene` to a
 canvas (letterboxed to the project aspect) — video **and** text clips, composited by
-`zIndex`. It also paints interactive transform overlays — drag / resize / inline-edit for text clips, and drag / uniform-scale for video & image clips — and plays the project's audio track in sync (toggle with
+`zIndex`. It also paints interactive transform overlays — drag / resize / rotate / inline-edit for text clips, and drag / resize / crop for video & image clips — and plays the project's audio track in sync (toggle with
 `enableAudio`, default on). You pass a **demuxer factory** — the bundled
 `createDefaultDemuxerFactory()` wires up mediabunny for you, while advanced
 consumers can swap in their own decode backend:
@@ -295,7 +307,7 @@ const scene = resolveTimeline(currentFrame, engine.getProject())
 
 The engine also runs with **no UI at all** via [`@elah/cli`](./packages/cli) — built for automation and AI-generation pipelines. `split`, `trim`, and `build` run in plain Node; `export` runs core's real `exportVideo` pipeline in headless Chrome, so CLI output is identical to editor output by construction.
 
-**Spec → MP4 in one command.** `elah build` consumes a seconds-based JSON spec (the AI-generation contract), probes each asset's real duration, and constructs the project through `TimelineEngine` — so overlaps, track caps, and source bounds are validated with path-addressed errors (`clips[2].duration must be …`) that a generating model can self-correct from:
+**Spec → MP4 in one command.** `elah build` consumes a seconds-based JSON spec (the AI-generation contract), probes each asset's real duration, and constructs the project through `TimelineEngine` — so overlaps and source bounds are validated with path-addressed errors (`clips[2].duration must be …`) that a generating model can self-correct from:
 
 ```jsonc
 // spec.json — times in seconds, assets by path or URL
@@ -313,6 +325,8 @@ The engine also runs with **no UI at all** via [`@elah/cli`](./packages/cli) —
 ```bash
 npx @elah/cli build --spec spec.json --export final.mp4
 ```
+
+The spec puts every video clip on a single video track, so overlapping video clips are a spec error (the engine itself allows several video tracks; the spec format has no way to name one). Overlapping text, image and audio clips are placed on extra tracks automatically.
 
 **Long-lived render server.** `elah serve` keeps a warm browser across requests — each render pays for a new tab, not a fresh Chrome launch. `POST /render` takes a build spec and returns the MP4 bytes:
 
@@ -362,7 +376,7 @@ and the architectural invariants every renderer/decode change must preserve.
 
 ## Community & support
 
-- **Discord** — [join the server](https://discord.gg/8CeZ2XbPy) for questions, help, and discussion.
+- **Discord** — [join the server](https://discord.gg/qKJXvc4Pwu) for questions, help, and discussion.
 - **Issues** — [github.com/elahlabs/elah/issues](https://github.com/elahlabs/elah/issues)
 - **Commercial licensing & support** — [paul@elah.dev](mailto:paul@elah.dev)
 

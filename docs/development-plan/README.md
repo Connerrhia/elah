@@ -2,7 +2,9 @@
 
 > Status: **proposed**, not yet built. Each doc below is a self-contained
 > workstream another developer can pick up. Written against the codebase as of
-> branch `dev` (June 2026).
+> branch `dev` (June 2026); only the "engine honesty" constraint below has been
+> updated since, for the 0.6.0 multi-track change — the workstream docs themselves
+> have not been re-audited.
 
 This wave is about turning a working engine + first-pass panels into a **coherent,
 composable editor SDK**. The engine layer (decode, render, export, resolve) is
@@ -33,8 +35,12 @@ workstreams:
   typed payload in this exact shape and is handled there.
 - **Model seam** — imported source media is a `MediaAsset`; generated elements
   (Text, future Draw/Shapes) are **not**. Adjacent in the UI, separate in the model.
-- **Engine honesty** — v1 is single video track + single audio track. The UI must
-  not imply layering the engine can't place.
+- **Engine honesty** — since 0.6.0 the engine allows any number of video tracks
+  (composited in track order, topmost lane on top) and of audio tracks. The UI must
+  not imply layering or decode throughput the engine can't deliver: decode has no
+  scheduler yet, so several video clips playing at once can stall (see
+  [`CURRENT_LIMITATIONS.md`](../../CURRENT_LIMITATIONS.md)). Note the headless build
+  spec still puts every video clip on one track.
 
 ---
 

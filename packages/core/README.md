@@ -46,6 +46,7 @@ npm install @elah/core
 | `BUILT_IN_TEXT_TEMPLATES` / `applyTextTemplate` | 14 text looks with layered entry/exit motion; `applyTextTemplate(template, clip)` returns an undoable `Partial<Clip>` patch |
 | `sampleTextAnimation` | Pure sampler for text/shape entry-exit animation (`TextAnimation`, `MotionSpec`) |
 | `createFrameSequence` / `FrameSequenceController` | Ordered image sets (360° orbits, storyboards) with scrub, loop and preload; `frameSequenceToProject` makes one editable |
+| `snapshotMediaLibrary` / `hydrateMediaLibrary` | Turn the media library into storable entries and put them back (ids kept) after a page load; storage is yours |
 | `sourceBlobCache` | Shared cache that de-duplicates video downloads between the demuxer and preview |
 | `PerfSummary` | Once-a-second render-loop cost summary; silent unless the `PERF` trace channel is on |
 | `exportVideo` | Export the timeline to MP4 via a web worker |
@@ -120,6 +121,24 @@ cleared. `TextAnimation` keeps the single-kind `in`/`out` enum and adds `inMotio
 `outMotion` (a `MotionSpec`: `opacity`, `offsetX`, `offsetY`, `scale`, `rotation`,
 `ease`, `opacityEase`), which replace the enum when present.
 
+Two things a template carries are **data only**: `stagger` (split a line into clips that
+enter one after another) and `tracking` (fake letterspacing). `applyTextTemplate` ignores
+them and nothing in these packages runs them; a host that wants either builds it from the
+template itself. Rotation is text-only: the shape renderers do not apply `transform.rotation`,
+so `spin` (and a `rotation` channel in a `MotionSpec`) has no visible effect on a shape clip.
+
+---
+
+## Transitions
+
+```ts
+engine.addTransition({ fromClipId, toClipId, trackId, kind: 'slide', durationFrames: 12, direction: 'left' })
+```
+
+`kind` is `'fade' | 'slide' | 'wipe'`; all three are implemented in preview and in export.
+`slide` moves left when `direction` is `'left'` and right for anything else; `wipe` ignores
+`direction`. `TransitionDirection` also types `'up'` and `'down'`, but neither is implemented.
+
 ---
 
 ## Frame sequences
@@ -148,6 +167,29 @@ the right responsive candidate.
 | `Track.pinned` | any | `'bottom'` keeps the lane below every non-pinned track; `addTrack` honours it |
 
 Any number of video tracks is allowed; they composite in track order, topmost lane on top.
+
+---
+
+## Keeping the media library across a page load
+
+```ts
+import {
+  mediaLibraryStore, snapshotMediaLibrary, hydrateMediaLibrary, refreshMissingThumbnails,
+} from '@elah/core'
+
+// Save: plain entries (assets still being probed are skipped). Where they go is up to you.
+const entries = snapshotMediaLibrary(mediaLibraryStore.getState())
+
+// Restore: ids are kept, so restored clips resolve their `assetId` directly.
+const { hydrated, needsThumbnail } = hydrateMediaLibrary(entries, {
+  referencedSrcs: new Set(/* every media clip's src in the project being opened */),
+})
+refreshMissingThumbnails(needsThumbnail) // cosmetic, fire-and-forget
+```
+
+This carries asset metadata and thumbnails only. A file imported from disk is a `blob:` URL
+that dies with the session; its bytes are not stored, and `relinkProjectMedia` reports such
+clips as `missing`.
 
 ---
 
@@ -195,6 +237,7 @@ import { exportVideo } from '@elah/core'
 
 const blob = await exportVideo(engine.getProject(), {
   videoBitrate: 8_000_000,
+  outputHeight: 1080, // short edge — optional, defaults to the stage's own
   onProgress: ({ frame, totalFrames }) => console.log(frame, '/', totalFrames),
 })
 ```
