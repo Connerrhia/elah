@@ -1,7 +1,8 @@
 import { generateId } from '../utils/id'
 import { mediaLibraryStore } from './store'
+import { determineAssetHasAudio, hasAudioDetermined } from './hasAudio'
 import { defaultAudioResolver, type AudioResolver } from '../media/audio/audioResolver'
-import type { MediaAsset, MediaKind } from './types'
+import type { MediaAsset, MediaAssetAnalysis, MediaKind } from './types'
 
 export interface ImportFilesOptions {
   /** Reserved for clip creation when source fps is unknown. Not used during import. */
@@ -15,6 +16,12 @@ export interface ImportUrlOptions extends ImportFilesOptions {
   name?: string
   /** Override the media kind instead of inferring it from the URL/content-type. */
   kind?: MediaKind
+  /**
+   * AI content analysis to carry over onto the created asset, when importing
+   * from a gallery item whose analysis has already completed. See
+   * `MediaAsset.analysis`.
+   */
+  analysis?: MediaAssetAnalysis
 }
 
 export interface ImportBlobOptions extends ImportFilesOptions {
@@ -51,11 +58,14 @@ const THUMBNAIL_STRIP_MAX_DIM = 160
 /** Number of normalized peaks stored per audio source. */
 const WAVEFORM_PEAK_COUNT = 256
 
+const PENDING_FALLBACK_DURATION_SEC = 5
+
 /**
  * Best-effort, synchronous-at-metadata check for an audio track on a video
  * element. No single API is reliable across browsers, so we layer them and
- * gracefully fall back to `false` (which just means "no audio dialog"). The
- * async audio decode in `analyzeAudio()` later corrects this when it can.
+ * gracefully fall back to `false`. Chromium in particular answers `false` for
+ * every video here — `determineAssetHasAudio()` (container probe) is what
+ * actually decides, and it corrects this seed as soon as it resolves.
  */
 function detectHasAudio(el: HTMLVideoElement): boolean {
   const probe = el as unknown as {
@@ -182,6 +192,7 @@ function loadMediaElement<T extends HTMLMediaElement>(
 
     const onError = () => {
       cleanup()
+      releaseMediaElement(el)
       reject(new Error(`Failed to load ${tag} metadata`))
     }
 
@@ -191,20 +202,72 @@ function loadMediaElement<T extends HTMLMediaElement>(
   })
 }
 
+/**
+ * Detach a probe/thumbnail media element from its source so the browser frees
+ * its media pipeline immediately. Chromium pins a hardware decoder per element
+ * with a live src; letting these wait for GC starves the WebCodecs playback
+ * pipeline of decoders on import-heavy sessions.
+ */
+export function releaseMediaElement(el: HTMLMediaElement): void {
+  try {
+    el.pause()
+    el.removeAttribute('src')
+    el.load()
+  } catch {
+    // Best-effort teardown.
+  }
+}
+
+/**
+ * Resolve a finite duration from a loaded media element.
+ *
+ * Chromium can report `el.duration === Infinity` at `loadedmetadata` for
+ * media without a container-level duration atom (e.g. freshly-generated /
+ * proxied audio) until a seek past the end forces it to compute the real
+ * value. Falls back to `0` (this file's existing "unknown duration"
+ * convention, see `makeVideoThumbnailStrip`) if even that doesn't resolve.
+ */
+export function resolveDuration(el: HTMLMediaElement): Promise<number> {
+  if (Number.isFinite(el.duration)) return Promise.resolve(el.duration)
+
+  return new Promise((resolve) => {
+    const finish = (value: number) => {
+      el.removeEventListener('durationchange', onChange)
+      clearTimeout(timer)
+      el.currentTime = 0
+      resolve(value)
+    }
+    const onChange = () => {
+      if (Number.isFinite(el.duration)) finish(el.duration)
+    }
+    el.addEventListener('durationchange', onChange)
+    el.currentTime = 1e101
+    const timer = setTimeout(() => finish(Number.isFinite(el.duration) ? el.duration : 0), 2000)
+  })
+}
+
 export async function probeVideo(src: string): Promise<ProbedMetadata> {
   const el = await loadMediaElement<HTMLVideoElement>('video', src, () => {})
-  return {
-    durationSec: el.duration,
-    width: el.videoWidth,
-    height: el.videoHeight,
-    hasAudio: detectHasAudio(el),
+  try {
+    return {
+      durationSec: await resolveDuration(el),
+      width: el.videoWidth,
+      height: el.videoHeight,
+      hasAudio: detectHasAudio(el),
+    }
+  } finally {
+    releaseMediaElement(el)
   }
 }
 
 export async function probeAudio(src: string): Promise<ProbedMetadata> {
   const el = await loadMediaElement<HTMLAudioElement>('audio', src, () => {})
-  return {
-    durationSec: el.duration,
+  try {
+    return {
+      durationSec: await resolveDuration(el),
+    }
+  } finally {
+    releaseMediaElement(el)
   }
 }
 
@@ -290,7 +353,7 @@ export async function makeVideoThumbnail(
     video.currentTime = 0
   })
 
-  return new Promise((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     const cleanup = () => {
       el.removeEventListener('seeked', onSeeked)
       el.removeEventListener('error', onError)
@@ -317,7 +380,7 @@ export async function makeVideoThumbnail(
 
     el.addEventListener('seeked', onSeeked)
     el.addEventListener('error', onError)
-  })
+  }).finally(() => releaseMediaElement(el))
 }
 
 /**
@@ -358,13 +421,17 @@ export async function makeVideoThumbnailStrip(
       el.currentTime = time
     })
 
-  const frames: string[] = []
-  for (let i = 0; i < count; i++) {
-    // Sample the middle of each segment so the first tile isn't a black frame.
-    const time = duration > 0 ? ((i + 0.5) / count) * duration : 0
-    frames.push(await seekTo(time))
+  try {
+    const frames: string[] = []
+    for (let i = 0; i < count; i++) {
+      // Sample the middle of each segment so the first tile isn't a black frame.
+      const time = duration > 0 ? ((i + 0.5) / count) * duration : 0
+      frames.push(await seekTo(time))
+    }
+    return frames
+  } finally {
+    releaseMediaElement(el)
   }
-  return frames
 }
 
 export async function makeImageThumbnail(src: string, maxDim: number): Promise<string> {
@@ -482,16 +549,24 @@ function scheduleThumbnail(asset: MediaAsset, maxDim: number): void {
 /**
  * Decode audio for video/audio sources. Sets `waveform` for rendering and
  * refines `hasAudio` (the import-time probe is best-effort; this is authoritative).
+ *
+ * A successful decode proves there is audio, so it may promote `hasAudio` to
+ * `true`. A failed one proves nothing — CORS and unsupported codecs fail the
+ * same way silence does — so it only writes `false` while the container probe
+ * (`determineAssetHasAudio`) has yet to answer, and never overrules it.
  */
 function scheduleAudioAnalysis(asset: MediaAsset): void {
   if (asset.kind !== 'audio' && asset.kind !== 'video') return
 
+  const markSilent = () => {
+    if (asset.kind !== 'video' || hasAudioDetermined(asset.id)) return
+    mediaLibraryStore.getState().updateAsset(asset.id, { hasAudio: false })
+  }
+
   void computeWaveform(asset.src)
     .then((waveform) => {
       if (!waveform) {
-        if (asset.kind === 'video') {
-          mediaLibraryStore.getState().updateAsset(asset.id, { hasAudio: false })
-        }
+        markSilent()
         return
       }
       mediaLibraryStore.getState().updateAsset(asset.id, {
@@ -499,12 +574,24 @@ function scheduleAudioAnalysis(asset: MediaAsset): void {
         ...(asset.kind === 'video' ? { hasAudio: true } : {}),
       })
     })
-    .catch(() => {
-      // No decodable audio track (silent/muted video, or unsupported codec).
-      if (asset.kind === 'video') {
-        mediaLibraryStore.getState().updateAsset(asset.id, { hasAudio: false })
-      }
-    })
+    .catch(markSilent)
+}
+
+/**
+ * Regenerate thumbnails for an asset already in the library.
+ *
+ * Import is normally the only thing that makes thumbnails, because import is
+ * normally the only way an asset gets into the library. Restoring a saved
+ * composition is the exception: the library is rebuilt from a stored snapshot,
+ * and an entry whose thumbnails were never captured (or were captured before a
+ * failed decode) would otherwise show the timeline's grey placeholder forever.
+ *
+ * No-op for an unknown id or an audio asset, which has no thumbnail to make.
+ */
+export function scheduleThumbnailById(assetId: string): void {
+  const asset = mediaLibraryStore.getState().getAsset(assetId)
+  if (!asset) return
+  scheduleThumbnail(asset, DEFAULT_THUMBNAIL_MAX_DIM)
 }
 
 interface RegisterAssetInput {
@@ -541,6 +628,10 @@ async function registerAsset(input: RegisterAssetInput): Promise<MediaAsset> {
   mediaLibraryStore.getState().addAsset(asset)
   scheduleThumbnail(asset, input.thumbnailMaxDim)
   scheduleAudioAnalysis(asset)
+  // The `hasAudio` seeded above is only the element probe's guess; start the
+  // authoritative container read now so it has settled by the time the asset is
+  // dropped on the timeline and the video/audio split prompt has to decide.
+  if (asset.kind === 'video') void determineAssetHasAudio(asset.id)
 
   return asset
 }
@@ -655,6 +746,82 @@ export async function importUrl(url: string, opts?: ImportUrlOptions): Promise<M
     lastModified: Date.now(),
     thumbnailMaxDim: opts?.thumbnailMaxDim ?? DEFAULT_THUMBNAIL_MAX_DIM,
   })
+}
+
+/**
+ * Like {@link importUrl}, but returns a `status: 'pending'` asset immediately
+ * instead of awaiting metadata — for callers (e.g. "add to timeline" from a
+ * remote gallery) that want to place a clip right away and let it resize
+ * itself once the real duration/dimensions arrive, rather than blocking on
+ * CDN latency. `opts.dimensions`, if known upfront (e.g. from a backend
+ * response), seeds `width`/`height` so the placeholder's aspect ratio is
+ * already correct.
+ *
+ * Callers that need the resolved metadata should use `importUrl` instead —
+ * this one only guarantees `id`/`kind`/`src` are final; everything else may
+ * still change (see the store update once `status` flips to `'ready'`).
+ */
+export async function beginImportUrl(
+  url: string,
+  opts?: ImportUrlOptions & { dimensions?: { width: number; height: number } },
+): Promise<MediaAsset> {
+  const existing = Object.values(mediaLibraryStore.getState().assets).find(
+    (asset) => asset.src === url,
+  )
+  if (existing) return existing
+
+  const kind = opts?.kind ?? inferKindFromUrl(url) ?? (await inferKindFromHead(url))
+  if (!kind) {
+    throw new Error(`[beginImportUrl] Could not determine media kind for "${url}"`)
+  }
+
+  const asset: MediaAsset = {
+    id: generateId(),
+    kind,
+    name: opts?.name ?? deriveNameFromUrl(url),
+    src: url,
+    durationSec: kind === 'image' ? 0 : PENDING_FALLBACK_DURATION_SEC,
+    width: opts?.dimensions?.width,
+    height: opts?.dimensions?.height,
+    ...(kind === 'video' ? { hasAudio: false } : {}),
+    byteSize: 0,
+    lastModified: Date.now(),
+    addedAt: Date.now(),
+    status: 'pending',
+    ...(opts?.analysis ? { analysis: opts.analysis } : {}),
+  }
+
+  mediaLibraryStore.getState().addAsset(asset)
+
+  // Runs in parallel with the metadata probe below, not after it: callers that
+  // import and insert in the same click (gallery "add to editor") would
+  // otherwise decide the video/audio split against the `hasAudio: false` seed
+  // above and drop a video with sound as video-only.
+  if (kind === 'video') void determineAssetHasAudio(asset.id)
+
+  const thumbnailMaxDim = opts?.thumbnailMaxDim ?? DEFAULT_THUMBNAIL_MAX_DIM
+  void probeMetadata(kind, url)
+    .then((metadata) => {
+      // `hasAudio` is deliberately absent — the container probe above owns it,
+      // and `metadata.hasAudio` is the guess that would clobber a real answer.
+      mediaLibraryStore.getState().updateAsset(asset.id, {
+        durationSec: metadata.durationSec,
+        width: metadata.width ?? asset.width,
+        height: metadata.height ?? asset.height,
+        status: 'ready',
+      })
+      const ready = mediaLibraryStore.getState().getAsset(asset.id)
+      if (ready) {
+        scheduleThumbnail(ready, thumbnailMaxDim)
+        scheduleAudioAnalysis(ready)
+      }
+    })
+    .catch((err) => {
+      console.warn(`[beginImportUrl] Metadata probe failed for "${asset.name}":`, err)
+      mediaLibraryStore.getState().updateAsset(asset.id, { status: 'ready' })
+    })
+
+  return asset
 }
 
 /**

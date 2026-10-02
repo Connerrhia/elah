@@ -12,7 +12,6 @@ export default function OfflinePage() {
       <div className="label-mono mb-4 text-2xs text-on-surface-variant opacity-90">Offline</div>
       <h1
         className="text-3xl font-semibold tracking-tight text-on-surface"
-        style={{ fontFamily: 'var(--font-inter), sans-serif' }}
       >
         You&apos;re offline
       </h1>

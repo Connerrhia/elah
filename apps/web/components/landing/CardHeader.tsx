@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
+import { InView } from './motion/InView'
 
-export type CardHeaderKind = 'editor' | 'timeline' | 'headless' | 'core' | 'demo'
+export type CardHeaderKind = 'editor' | 'timeline' | 'headless' | 'core' | 'react' | 'demo'
 
 export interface CardHeaderProps {
   kind: CardHeaderKind
@@ -16,7 +17,7 @@ const headerBase: CSSProperties = {
   position: 'relative',
 }
 
-export function CardHeader({ kind, playheadPct = '48%', delay = '-3s' }: CardHeaderProps) {
+function CardHeaderBody({ kind, playheadPct = '48%', delay = '-3s' }: CardHeaderProps) {
   if (kind === 'editor') {
     return (
       <div style={{ ...headerBase, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -153,6 +154,11 @@ export function CardHeader({ kind, playheadPct = '48%', delay = '-3s' }: CardHea
     )
   }
 
+  // 'core' and 'react' share one artwork: a centre pill with satellite tags.
+  const hub =
+    kind === 'react'
+      ? { label: 'react', tags: ['useEditor', 'context', 'hooks', 'mixer'] }
+      : { label: 'core', tags: ['react', 'vue', 'node', 'vanilla'] }
   return (
     <div style={{ ...headerBase, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span
@@ -168,13 +174,13 @@ export function CardHeader({ kind, playheadPct = '48%', delay = '-3s' }: CardHea
           zIndex: 1,
         }}
       >
-        core
+        {hub.label}
       </span>
       {[
-        { label: 'react', top: '14%', left: '10%', delay: '0s' },
-        { label: 'vue', top: '14%', left: '68%', delay: '.9s' },
-        { label: 'node', top: '68%', left: '8%', delay: '1.8s' },
-        { label: 'vanilla', top: '68%', left: '64%', delay: '2.7s' },
+        { label: hub.tags[0], top: '14%', left: '10%', delay: '0s' },
+        { label: hub.tags[1], top: '14%', left: '64%', delay: '.9s' },
+        { label: hub.tags[2], top: '68%', left: '8%', delay: '1.8s' },
+        { label: hub.tags[3], top: '68%', left: '64%', delay: '2.7s' },
       ].map((tag) => (
         <span
           key={tag.label}
@@ -197,5 +203,14 @@ export function CardHeader({ kind, playheadPct = '48%', delay = '-3s' }: CardHea
         </span>
       ))}
     </div>
+  )
+}
+
+/** Wraps the body so its infinite loops pause while the card is off screen. */
+export function CardHeader(props: CardHeaderProps) {
+  return (
+    <InView>
+      <CardHeaderBody {...props} />
+    </InView>
   )
 }

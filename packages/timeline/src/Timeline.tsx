@@ -22,6 +22,7 @@ import { Playhead } from './Playhead'
 import { TrackRow } from './TrackRow'
 import { AudioDropDialog } from './AudioDropDialog'
 import { cn } from './cn'
+import { computeAnchoredScrollLeft, resolveZoomAnchorX, wheelZoomStep } from './zoomAnchor'
 import type { TimelineClassNames } from './classNames'
 import {
   VisibleWindowContext,
@@ -39,6 +40,13 @@ export interface TimelineRef {
    * long clips that overflow far past the viewport. No-op until mounted.
    */
   fitToWindow: () => void
+  /**
+   * Set the zoom (px/frame, store-clamped) while keeping the view anchored:
+   * the playhead stays put when it is visible, otherwise the viewport center
+   * does. Use this instead of raw setZoom so zooming never scrolls the
+   * playhead out of view.
+   */
+  zoomAtAnchor: (nextZoom: number) => void
 }
 
 /** Width of the track-label sidebar; the clip lanes begin after it. */
@@ -115,14 +123,28 @@ export interface TimelineProps {
  */
 export const Timeline = memo(
   forwardRef<TimelineRef, TimelineProps>(function Timeline(
-    { fps = 30, className, style, classNames, sidebarWidth = SIDEBAR_WIDTH, compactSidebar = false },
+    {
+      fps = 30,
+      className,
+      style,
+      classNames,
+      sidebarWidth = SIDEBAR_WIDTH,
+      compactSidebar = false,
+    },
     ref,
   ) {
     const { engine, playback } = useEditor()
 
+    const rootRef = useRef<HTMLDivElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const rulerWrapRef = useRef<HTMLDivElement>(null)
     const clipboardRef = useRef<Clip[]>([])
+
+    // Anchored zoom: scrollLeft correction computed at zoom time, applied
+    // AFTER React re-lays out the lanes at the new width. Writing scrollLeft
+    // synchronously would clamp against the OLD scrollWidth when zooming in,
+    // making the anchor slip on large steps.
+    const pendingScrollLeftRef = useRef<number | null>(null)
 
     // Cached container width — the scroll handler reads this instead of
     // clientWidth so it never forces a reflow on every scroll event.
@@ -141,17 +163,41 @@ export const Timeline = memo(
       usePlaybackStore.getState().setZoom(available / frames)
     }, [fps, sidebarWidth])
 
-    useImperativeHandle(
-      ref,
-      () => ({ engine, playback, fitToWindow }),
-      [engine, playback, fitToWindow],
-    )
+    /**
+     * Change zoom while keeping the frame at lane-x `anchorX` (px from the
+     * lane's left viewport edge, i.e. after the sidebar) visually fixed.
+     * The formula matches the pinch handler's; the scroll correction is
+     * deferred to the layout effect below.
+     */
+    const applyAnchoredZoom = useCallback((anchorX: number, nextZoomTarget: number) => {
+      const el = scrollRef.current
+      if (!el) return
+      const prevZoom = usePlaybackStore.getState().zoom
+      usePlaybackStore.getState().setZoom(nextZoomTarget)
+      const nextZoom = usePlaybackStore.getState().zoom // store-clamped
+      if (nextZoom === prevZoom) return
+      pendingScrollLeftRef.current = computeAnchoredScrollLeft(
+        prevZoom,
+        nextZoom,
+        el.scrollLeft,
+        anchorX,
+      )
+    }, [])
 
-    const tracks = useTracksStore((s) => s.tracks)
-    const totalFrames = useTracksStore((s) => s.totalFrames)
-    const zoom = usePlaybackStore((s) => s.zoom)
-    const setZoom = usePlaybackStore((s) => s.setZoom)
-    const setCurrentFrame = usePlaybackStore((s) => s.setCurrentFrame)
+    // Zoom anchored on the playhead when it's in view, else the viewport
+    // center. Backs the imperative handle used by toolbar buttons/slider and
+    // editor-wide ctrl+scroll forwarding.
+    const zoomAtAnchor = useCallback(
+      (nextZoom: number) => {
+        const el = scrollRef.current
+        if (!el) return
+        const { zoom: prevZoom, currentFrame } = usePlaybackStore.getState()
+        const laneWidth = el.clientWidth - sidebarWidth
+        const anchorX = resolveZoomAnchorX(currentFrame, prevZoom, el.scrollLeft, laneWidth)
+        applyAnchoredZoom(anchorX, nextZoom)
+      },
+      [applyAnchoredZoom, sidebarWidth],
+    )
 
     // Mirror horizontal scroll of the track area into the ruler wrapper so they
     // always stay in sync. The ruler wrapper is overflow:hidden (no visible bar).
@@ -185,14 +231,9 @@ export const Timeline = memo(
     }, [syncRulerScroll, updateWindow])
 
     // Keep the cached container width current via ResizeObserver, and
-    // recompute the window whenever it changes. Seeds containerWidthRef
-    // synchronously (not just from the observer's async callback) — this is a
-    // layout effect specifically so it runs before the [zoom, updateWindow]
-    // layout effect below, guaranteeing the very first updateWindow() call
-    // (on mount) sees the real width instead of the useRef(0) default. Without
-    // this, the initial window is computed as [0,0] and stays wrong until the
-    // ResizeObserver's first callback fires — which can lag mount by seconds
-    // under load, culling clips that are actually on-screen.
+    // recompute the window whenever it changes. Seeded synchronously in a
+    // layout effect so the first updateWindow() (on mount) sees the real
+    // width instead of the useRef(0) default, which would cull on-screen clips.
     useLayoutEffect(() => {
       const el = scrollRef.current
       if (!el) return
@@ -207,6 +248,32 @@ export const Timeline = memo(
       return () => observer.disconnect()
     }, [updateWindow])
 
+    // Apply the deferred scroll correction once the lanes have re-rendered at
+    // the new zoom (layout effect runs before paint — no visible flicker).
+    useLayoutEffect(() => {
+      const pending = pendingScrollLeftRef.current
+      if (pending === null) return
+      pendingScrollLeftRef.current = null
+      const el = scrollRef.current
+      if (!el) return
+      el.scrollLeft = Math.max(0, pending)
+      syncRulerScroll()
+      // scrollLeft just changed under us — recompute the visible window from
+      // the corrected position, not the pre-correction one.
+      updateWindow()
+    })
+
+    useImperativeHandle(
+      ref,
+      () => ({ engine, playback, fitToWindow, zoomAtAnchor }),
+      [engine, playback, fitToWindow, zoomAtAnchor],
+    )
+
+    const tracks = useTracksStore((s) => s.tracks)
+    const totalFrames = useTracksStore((s) => s.totalFrames)
+    const zoom = usePlaybackStore((s) => s.zoom)
+    const setCurrentFrame = usePlaybackStore((s) => s.setCurrentFrame)
+
     // Recompute on mount and whenever zoom changes — zoom changes clip pixel
     // positions, so the same scrollLeft maps to a different visible clip set.
     // Layout-effect timing avoids a first-paint flash where all clips mount.
@@ -214,21 +281,34 @@ export const Timeline = memo(
       updateWindow()
     }, [zoom, updateWindow])
 
-    // Ctrl/Cmd + scroll → zoom
+    // Ctrl/Cmd + scroll → zoom, anchored under the cursor. Bound to the
+    // timeline ROOT (capture phase) so it also covers the ruler and sidebar —
+    // previously ctrl+wheel over the ruler fell through to browser page zoom.
     useEffect(() => {
-      const el = scrollRef.current
-      if (!el) return
+      const root = rootRef.current
+      if (!root) return
 
       const handleWheel = (e: WheelEvent) => {
         if (!e.ctrlKey && !e.metaKey) return
         e.preventDefault()
-        const direction = e.deltaY > 0 ? -0.5 : 0.5
-        setZoom(usePlaybackStore.getState().zoom + direction)
+        const el = scrollRef.current
+        if (!el) return
+        const prevZoom = usePlaybackStore.getState().zoom
+        const nextZoom = wheelZoomStep(prevZoom, e.deltaY)
+        const laneX = e.clientX - el.getBoundingClientRect().left - sidebarWidth
+        if (laneX < 0) {
+          // Pointer over the sticky sidebar — anchor on the playhead instead
+          // (clamping to the lane seam would anchor on nothing meaningful).
+          zoomAtAnchor(nextZoom)
+        } else {
+          applyAnchoredZoom(laneX, nextZoom)
+        }
       }
 
-      el.addEventListener('wheel', handleWheel, { passive: false })
-      return () => el.removeEventListener('wheel', handleWheel)
-    }, [setZoom])
+      root.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+      return () =>
+        root.removeEventListener('wheel', handleWheel, { capture: true })
+    }, [applyAnchoredZoom, zoomAtAnchor, sidebarWidth])
 
     // Pinch → timeline zoom, anchored at the finger midpoint so the frame
     // under the pinch stays put. preventDefault stops the browser from
@@ -259,11 +339,7 @@ export const Timeline = memo(
         // Lane x of the pinch midpoint (content coords minus the sticky sidebar).
         const midX =
           (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left - sidebarWidth
-        const prevZoom = usePlaybackStore.getState().zoom
-        const anchorFrame = (el.scrollLeft + midX) / prevZoom
-        usePlaybackStore.getState().setZoom((startZoom * dist(e.touches)) / startDist)
-        const nextZoom = usePlaybackStore.getState().zoom // store-clamped
-        el.scrollLeft = anchorFrame * nextZoom - midX
+        applyAnchoredZoom(midX, (startZoom * dist(e.touches)) / startDist)
       }
 
       const handleTouchEnd = (e: TouchEvent) => {
@@ -280,7 +356,7 @@ export const Timeline = memo(
         el.removeEventListener('touchend', handleTouchEnd)
         el.removeEventListener('touchcancel', handleTouchEnd)
       }
-    }, [sidebarWidth])
+    }, [sidebarWidth, applyAnchoredZoom])
 
     // Keyboard shortcuts: Space = play/pause, Ctrl+Z/Y = undo/redo
     useEffect(() => {
@@ -365,11 +441,16 @@ export const Timeline = memo(
               const offset = src.startFrame - minStart
               const options = buildPasteOptions(src, pasteFrame + offset)
               const newClip = engine.addClip(options)
-              // Preserve trim info the factory doesn't carry through
-              if (src.sourceStartFrame !== 0 || src.sourceDurationFrames !== src.durationFrames) {
+              // Preserve trim info (and speed) the factory doesn't carry through.
+              if (
+                src.sourceStartFrame !== 0 ||
+                src.sourceDurationFrames !== src.durationFrames ||
+                (src.speed !== undefined && src.speed !== 1)
+              ) {
                 engine.updateClip(newClip.id, newClip.trackId, {
                   sourceStartFrame: src.sourceStartFrame,
                   sourceDurationFrames: src.sourceDurationFrames,
+                  ...(src.speed !== undefined ? { speed: src.speed } : {}),
                 })
               }
               newIds.push(newClip.id)
@@ -396,10 +477,11 @@ export const Timeline = memo(
     }, [engine])
 
     const rulerHeight = 24
-    const totalHeight = tracks.reduce((sum, t) => sum + t.height, 0)
 
     return (
       <div
+        ref={rootRef}
+        data-elah-timeline-root=""
         className={cn('bg-ed-bg-2 text-ed-text', classNames?.root, className)}
         style={{
           display: 'flex',
@@ -510,5 +592,3 @@ export const Timeline = memo(
     )
   }),
 )
-
-

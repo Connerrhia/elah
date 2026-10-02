@@ -174,7 +174,7 @@ class PlaybackEngine {
 Internals worth knowing:
 
 - **Anchor-and-integrate.** Two scalars — `anchorFrame` and `anchorTime` — define position. While playing, `getFrameAt(t) = anchorFrame + (t - anchorTime) × fps × rate`. Pause/play/rate-change re-anchor at the current integrated position so there is no drift.
-- **Integer vs float frames.** The store and UI use `Math.floor(getFrameAt())`. The renderer (when it lands) should call `getFrameAt()` directly for sub-frame-accurate seeking.
+- **Integer vs float frames.** The store and UI use `Math.floor(getFrameAt())`, and so does `<Preview>`'s RAF shell when it picks the frame to resolve.
 - **Tab visibility.** When `document.hidden`, the integrated position freezes (re-anchor on hide). On visible again, time re-anchors without catch-up. Same UX goal as the old elapsed clamp, but tied to visibility rather than a fixed ms threshold.
 - **Notify-on-integer-advance.** During RAF, subscribers fire only when the integer frame changes — avoids storms on 60 Hz displays running a 30 fps timeline.
 - **Epoch always bumps on seek.** `seek()` does *not* early-return on same frame. Repeat seeks to the same frame must retrigger one-shot effects (loop-to-start, scrub-while-paused). The store mirrors this with `currentFrameEpoch`.
@@ -259,25 +259,30 @@ interface Project {
   stage: { width: number; height: number }          // default 1080×1920 (portrait)
   tracks: Track[]
   clips: Record<string /* trackId */, Clip[]>       // sorted by startFrame, no overlap
-  version: number
+  transitions: Transition[]                         // fade | slide | wipe between adjacent clips
+  version: number                                   // document schema version (PROJECT_VERSION)
+  masterVolume?: number                             // 0..2, default 1
 }
 
 interface Track {
   id: string
   name: string
-  kind: 'video' | 'audio' | 'text'
+  kind: 'video' | 'audio' | 'elements'              // 'elements' holds text, shape and freehand clips
   order: number                                     // 0 = topmost in UI = front-most in render
   height: number                                    // px, UI hint
   locked: boolean                                   // UI-only; no engine effect
   disabled: boolean                                 // skip entirely
   muted: boolean                                    // audio→silent, video stays visible
   solo: boolean                                     // exclude other tracks of same kind
+  volume?: number                                   // track gain 0..2, default 1
+  protected?: boolean                               // removeTrack is a no-op; the UI cannot delete it
+  pinned?: 'bottom'                                 // addTrack keeps this lane below freely-added tracks
 }
 
 interface Clip {
   id: string
   trackId: string
-  type: 'video' | 'audio' | 'text' | 'image'
+  type: 'video' | 'audio' | 'text' | 'image' | 'shape' | 'freehand'
   name: string
 
   // Timeline placement
@@ -292,11 +297,20 @@ interface Clip {
   src?: string                                      // direct URL (blob URL or remote)
   assetId?: string                                  // MediaLibrary key (preferred when set)
   content?: string                                  // text clips only
+  // …text style (fontSize, color, backgroundColor, padding, …), shape style
+  // (shapeKind, shapeFill, …) and freehand style (pathData, strokeColor, …)
 
   // Compositing
   volume?: number                                   // 0..1
   opacity?: number                                  // 0..1
-  transform?: Transform                             // normalized 0..1, resolution-independent
+  transform?: Transform                             // x, y normalized 0..1; scale, optional scaleX/scaleY, rotation, anchor
+  speed?: number                                    // video only; 0.25..4, setClipSpeed() recomputes durationFrames
+  crop?: { x: number; y: number; width: number; height: number }  // source-space 0..1, video/image only
+  cornerRadius?: number                             // 0..0.5 of the shorter rendered side, video/image only
+
+  // Animation (see "Animation model" below)
+  textAnimation?: TextAnimation                     // entry/exit for text clips
+  shapeAnimation?: TextAnimation                    // entry/exit for shape clips
 
   // Flags
   locked?: boolean
@@ -309,18 +323,18 @@ interface MediaAsset {
   name: string
   src: string              // blob URL after import
   durationSec: number
-  width?, height?, sourceFps?, thumbnailUrl?, byteSize, addedAt
+  width?, height?, sourceFps?, hasAudio?, thumbnailUrl?, thumbnailStrip?, byteSize, addedAt, …
 }
 ```
 
-`MediaAsset` lives in the in-memory `MediaLibrary` (`useMediaLibraryStore`). Clips reference assets via `assetId`; `src` is duplicated on the clip today so the resolver and future renderer can work without a library lookup. Both can coexist during migration to an assetId-only model.
+`MediaAsset` lives in the in-memory `MediaLibrary` (`useMediaLibraryStore`). Clips reference assets via `assetId`; `src` is duplicated on the clip so the resolver and renderer can work without a library lookup. Both coexist; the engine does not require an `assetId`.
 
 ### Invariants
 
 - `clips[trackId]` is **always sorted by `startFrame` ascending** and **never has overlap** within a track.
 - `startFrame >= 0`, `durationFrames >= 1`.
-- For media clips: `durationFrames <= sourceDurationFrames` (text clips are exempt).
-- `sourceStartFrame + durationFrames <= sourceDurationFrames`.
+- For media clips at speed 1: `durationFrames <= sourceDurationFrames` (text, shape and freehand clips are exempt).
+- At speed 1, `sourceStartFrame + durationFrames <= sourceDurationFrames`. A `speed` other than 1 rescales `durationFrames` against the source window, and the resolver maps timeline frames to source frames accordingly.
 - These invariants are enforced inside `TimelineEngine` mutation methods, including `moveClip` and `trimClip`.
 
 ### Why two coordinate systems
@@ -329,6 +343,36 @@ interface MediaAsset {
 - **Source frame** — what part of the source media plays.
 
 This separation is what makes trims, splits, and slips possible without re-encoding. A split simply creates two clips with the same `src`, adjusted `startFrame` and `sourceStartFrame`.
+
+### Tracks and lanes
+
+A project can hold any number of tracks of each kind. Since 0.6.0 that includes **multiple video tracks**: `addTrack('video')` adds the new lane *below* the existing video lanes, and video lanes composite in lane order with the topmost lane on top (see the z-index rule in §5). Two further `Track` fields shape the layout:
+
+- `protected`: `removeTrack` is a no-op for the track, so the UI cannot delete it. Useful for a fixed-lane editor.
+- `pinned: 'bottom'`: `addTrack` keeps pinned lanes below every freely-added track, so a fixed audio or subtitle bar stays at the bottom whatever the insertion order.
+
+`TimelineConfig.initialTracks` creates a fixed set of lanes when the engine is constructed; omit it and the engine starts with a single "Track 1" video track. Text, shape and freehand clips live on `'elements'` tracks.
+
+### Animation model
+
+Entry and exit motion for text and shape clips is a `TextAnimation`: an `in` and/or `out` kind (`fade`, `spin`, `slide-up|down|left|right`), a shared `durationFrames`, and optionally a layered `inMotion` / `outMotion` `MotionSpec` that replaces the enum for that end. A `MotionSpec` describes only the **far end** of the ramp (opacity, `offsetX`/`offsetY`, a `scale` multiplier, a `rotation` delta, plus `ease` and `opacityEase`); the near end is always the clip's authored resting state. The easing set is `linear`, `quad-in`, `quad-out`, `quad-in-out`, `cubic-out`, `expo-out`, `back-in`, `back-out`, `elastic-out` and `bounce-out`; the `back-*` and `elastic-out` curves overshoot.
+
+`sampleTextAnimation` (`resolver/textAnimation.ts`) turns the descriptor into the two channels every renderer already understands: an opacity ramp and, for kinds that move or rotate, a concrete `Transform`. Renderers stay animation-unaware, so preview and export agree without a second code path.
+
+Text templates (`applyTextTemplate`, `elements/textTemplates.ts`) bundle a style and a motion into a `Partial<Clip>` patch. They write ordinary clip fields, so nothing downstream needs to know a template was used. `applyTextTemplate` ignores the `stagger` and `tracking` fields a template may describe: those are for a host app that builds a timeline from a template, and nothing in this repo executes them. `spin` is a text-only kind; the shape renderers do not apply rotation.
+
+There are no general keyframe channels. Entry/exit ramps are the whole animation model today.
+
+### Persistence
+
+The engine holds the project in memory only. `@elah/core` ships the *seam* for storing it, not a storage adapter:
+
+- `PROJECT_VERSION` stamps a stored document. `readProjectDocument(raw)` validates and normalises one (throwing `ProjectDocumentError` with code `unreadable` or `unsupported-version`), and its internal `migrate` step is the identity until a second version exists.
+- `engine.loadProject(...)` swaps in a document, with options for what the playhead and undo history do (`rewind` / `keep`, `reset` / `keep`).
+- `relinkProjectMedia(project, assets)` repairs clips whose `assetId` no longer matches the library by matching on `src`. Clips whose media cannot be recovered are reported in `missing` and left in place rather than dropped; `missingMediaSummary` turns that list into one readable line.
+- `snapshotMediaLibrary` / `hydrateMediaLibrary` capture and restore the Assets panel (including stored filmstrips) so a reopened project does not show anonymous grey rectangles. Bytes behind a `blob:` URL are not stored; those clips come back as missing media.
+
+The IndexedDB storage in the elah.dev web app is one implementation of this seam, in `apps/web`, not part of the packages.
 
 ---
 
@@ -343,11 +387,15 @@ function resolveTimeline(frame: number, project: Project): Scene
 
 interface Scene {
   frame: number
+  fps: number                      // renderers never ask the project for these two
+  stage: { width: number; height: number }
   videos: ActiveVideoClip[]
   audios: ActiveAudioClip[]
   texts: ActiveTextClip[]
   images: ActiveImageClip[]
-  transitions: SceneTransition[]   // empty until transitions exist
+  shapes: ActiveShapeClip[]
+  freehand: ActiveFreehandClip[]
+  transitions: ActiveTransition[]  // { id, kind, t, direction?, fromClipId, toClipId }
 }
 
 interface ActiveClipBase {
@@ -357,9 +405,11 @@ interface ActiveClipBase {
   sourceFrame: number              // exact frame inside source to display
   opacity: number
   zIndex: number                   // higher = closer to viewer
-  transform?: Transform            // passed through from Clip.transform
+  transform?: Transform            // from Clip.transform; replaced by the sampled ramp during a text/shape entry or exit
 }
 ```
+
+`ActiveVideoClip` and `ActiveImageClip` also carry `crop` and `cornerRadius`.
 
 ### Rules
 
@@ -370,10 +420,11 @@ interface ActiveClipBase {
    - `clip.disabled === true` → skip clip.
    - `track.muted === true` and type ∈ {video, audio} → emit clip with `volume = 0`.
    - empty `src` on media clips → skip.
-4. **Solo** — if any track of kind `K` has `solo === true`, only solo tracks of kind `K` contribute. Image clips piggyback on video solo.
-5. **Z-index** — `zIndex = (maxOrder - track.order) * 1000`. So `track.order = 0` (topmost in UI) has the highest zIndex (front-most on screen). Arrays are sorted ascending: lower zIndex first, last element on top.
+4. **Solo** — if any track of kind `K` (`video`, `audio` or `elements`) has `solo === true`, only solo tracks of kind `K` contribute. Image clips piggyback on video solo.
+5. **Z-index** — on `video` and `audio` tracks `zIndex = (maxOrder - track.order) * 1000`; on `elements` tracks it is the same expression plus `ELEMENTS_ZINDEX_BASE` (1,000,000), so text, shape and freehand clips always sit above every video and image clip. `track.order = 0` (topmost in UI) has the highest zIndex (front-most on screen), and with several video tracks the topmost lane wins. Arrays are sorted ascending: lower zIndex first, last element on top.
+6. **Transitions** — a `Transition` between two adjacent clips on a track yields an `ActiveTransition` with eased progress `t` while its window is open. The resolver sets the outgoing clip's opacity to 0 and the incoming clip's to 1 (see "Transitions" in §6).
 
-The `* 1000` multiplier reserves room for sub-layer offsets (e.g. text "above its track" can add `+100` later).
+The `* 1000` multiplier reserves room for sub-layer offsets.
 
 ### Determinism
 
@@ -386,7 +437,7 @@ The `* 1000` multiplier reserves room for sub-layer offsets (e.g. text "above it
 
 ### What renderers see
 
-The shipped `GpuRenderer` consumes `Scene.videos` / `.images` / `.texts`, uploads each to a GPU texture (video frames come from the decode pipeline; text is rasterized to a canvas first), and composites them by `zIndex`. The export worker consumes the *same* `Scene` and draws to a 2D `OffscreenCanvas` using the same placement helpers. `AudioPlaybackController` consumes `Scene.audios`. **None of them imports `Project` or `Clip` directly** — the `Scene` is the entire contract.
+The shipped `GpuRenderer` consumes `Scene.videos` / `.images` / `.texts` / `.shapes` / `.freehand`, uploads each to a GPU texture (video frames come from the decode pipeline; text, shapes and freehand strokes are rasterized to a canvas first), and composites them by `zIndex`. The export worker consumes the *same* `Scene` and draws to a 2D `OffscreenCanvas` using the same placement helpers. `AudioPlaybackController` consumes `Scene.audios`. **None of them imports `Project` or `Clip` directly** — the `Scene` is the entire contract.
 
 ---
 
@@ -413,12 +464,12 @@ references** — `scene === lastScene` is a no-op. The renderer reads only the
 |---|---|
 | `Renderer` interface | ✅ shipped (`core/renderer/types.ts`) |
 | `useResolvedScene()` hook | ✅ shipped — memoized `resolveTimeline(frame, project)` |
-| `GpuRenderer` (WebGL2) | ✅ shipped — `core/renderer/gpu/`; video / image / text layers, context-loss recovery |
-| `<Preview>` component | ✅ shipped — `editor/Preview/`; mounts the renderer, drives RAF, paints the text overlay |
+| `GpuRenderer` (WebGL2) | ✅ shipped — `core/renderer/gpu/`; video / image / text / shape / freehand layers, context-loss recovery |
+| `<Preview>` component | ✅ shipped — `editor/Preview/`; mounts the renderer, drives RAF, hosts the interaction overlays (text, shape, media transform) and `TransitionOverlay` |
 | Export path | ✅ shipped — `core/export/`; worker + `OffscreenCanvas`, not a `Renderer` instance (see below) |
 
-The playground draws real decoded video to the canvas today. `<Preview>` is the
-production wiring; the playground's `GpuPreview.tsx` is the reference shell.
+`<Preview>` is the production wiring. The in-browser playgrounds on elah.dev
+(`apps/web`, `/playground/*`) show it running against real decoded video.
 
 ### The shipped renderer: GPU
 
@@ -428,13 +479,32 @@ production wiring; the playground's `GpuPreview.tsx` is the reference shell.
   entering clips and releasing leaving ones, then builds one global draw list
   sorted by `zIndex`.
 - `VideoLayer` pulls frames from the decode pipeline (`StreamingFrameProducer`),
-  `ImageLayer` loads static bitmaps, and `TextLayer` rasterizes glyphs to a
-  canvas → texture. All three share the same quad shader and composite by `zIndex`.
+  `ImageLayer` loads static bitmaps, `TextLayer` rasterizes glyphs to a
+  canvas → texture, and `ShapeLayer` / `FreehandLayer` rasterize vector shapes and
+  freehand strokes the same way. All five are registered in `GpuRenderer`, share the
+  same quad shader and composite by `zIndex`. (`FrameProbeLayer` is a bisection-only
+  stand-in for `VideoLayer`.)
 - Placement math (object-fit contain, transforms, text layout) lives in pure
   helpers — `gpu/layers/drawRect.ts`, `objectFit.ts`, `textLayout.ts`.
 
 The full GPU + decode pipeline is documented in
 [`core/renderer/architecture.md`](./packages/core/src/renderer/architecture.md).
+
+### Transitions
+
+Transitions are `fade`, `slide` and `wipe`, all implemented, and all built on one idea: the
+GPU never decodes two clips for a cut. During a transition window the resolver zeroes the
+outgoing clip's opacity and emits an `ActiveTransition`. In the preview, `TransitionOverlay`
+takes a frozen snapshot of the WebGL canvas just before the transition starts (the outgoing
+clip fully visible) and fades, translates or clips it with CSS as `t` goes 0 → 1; the
+export worker draws the same kind of snapshot on top with the matching alpha, offset or
+clip. `slide` moves left only for `direction: 'left'` and right otherwise; `wipe` ignores
+`direction`. `up` and `down` exist in the `TransitionDirection` type but no renderer
+implements them.
+
+Because the snapshot is of the whole canvas, anything else composited at that moment (a
+second video lane, text, a shape) is frozen into it as well; see KB-002 in
+[`docs/known-limitations.md`](./docs/known-limitations.md).
 
 ### Export is a parallel path, not a `Renderer`
 
@@ -447,7 +517,7 @@ that shared resolution, not a shared draw call, is what keeps them in sync. See
 
 ### Future renderers
 
-A WebGPU backend (shader effects, transitions) would implement the same
+A WebGPU backend (shader effects, GPU-side transitions) would implement the same
 `Renderer` interface and consume the same `Scene` — no change to the engine,
 resolver, or React layer.
 
@@ -602,39 +672,47 @@ Ruler click ──► usePlaybackStore.setCurrentFrame(frame)
 
 ## 8. What lives where (package boundaries)
 
-Everything lives in one package: `@elah/editor` (`packages/editor/`). This is **intentional** — premature package splits create import-resolution overhead, build orchestration complexity, and version-skew bugs. The boundaries below are *logical* and organized as three source layers:
+The repository publishes **five packages**. Four release together and share one version (`@elah/core`, `@elah/react`, `@elah/timeline`, `@elah/editor`); `@elah/cli` versions independently. The split follows real dependency boundaries (a React-free engine, React bindings, the timeline UI, the editor composition, a headless CLI), not folder tidiness:
 
 ```
-packages/editor/src/
-  core/       ← runtime; React-agnostic where possible
-  timeline/   ← timeline UI surface; may import from core/, not editor/
-  editor/     ← composition: EditorProvider, hooks, Preview, AssetPanel
+packages/
+  core/       @elah/core      engine, resolver, WebGL2 renderer, decode, stores, export. Zero React.
+  react/      @elah/react     editor context, store hooks, audio hooks
+  timeline/   @elah/timeline  the <Timeline> UI: tracks, clips, ruler, playhead, drag/trim/snap
+  editor/     @elah/editor    EditorProvider, Preview, panels; re-exports the public API of the three above
+  cli/        @elah/cli       elah build / export / serve: headless rendering via Playwright + system Chrome
 
-Dependency rule:  core  ←  timeline  ←  editor
+Dependency rule:  core  ←  react  ←  timeline  ←  editor        (cli builds on core)
 ```
+
+`apps/web` (the elah.dev site and docs) and `apps/server` (a render-server example built on `@elah/cli`) consume the packages; `examples/` holds standalone apps that install from npm.
 
 | Logical area | Path | Status |
 |---|---|---|
-| Types | `core/types/` | ✅ |
-| Engine | `core/editor/`, `core/track/`, `core/visitor/`, `core/elements/` | ✅ |
-| Playback | `core/playback/` | ✅ |
-| Resolver + tests | `core/resolver/` | ✅ |
-| State mirrors | `core/stores/` | ✅ |
-| Media library (assets) | `core/assets/` (`importFiles`, `useMediaLibraryStore`) | ✅ |
-| Media decode pipeline | `core/media/video/` (`StreamingFrameProducer`, `FrameCache`, demuxer), `core/media/audio/` | ✅ |
-| Renderer interface | `core/renderer/types.ts` | ✅ |
-| Renderer implementation | `core/renderer/gpu/` (`GpuRenderer`, `RenderGraph`, video/image/text layers) | ✅ |
-| Export | `core/export/` (`exportVideo`, `ExportWorker`) | ✅ |
-| Trace / debug | `core/debug/trace.ts` | ✅ |
-| Engine context hooks | `core/editor-context.ts` | ✅ |
-| Actions | `core/actions/` | ✅ |
-| Utilities | `core/utils/` | ✅ |
-| Timeline UI | `timeline/` (`Timeline`, `TrackRow`, `ClipBlock`, `useTimelineDrop`) | ✅ |
-| Editor composition | `editor/` (`EditorProvider`, `AssetPanel`, `Preview`, `useResolvedScene`) | ✅ |
+| Types | `core/src/types/` | ✅ |
+| Engine | `core/src/editor/`, `track/`, `visitor/`, `elements/` | ✅ |
+| Project documents | `core/src/editor/projectDocument.ts`, `core/src/project/` | ✅ |
+| Playback | `core/src/playback/` | ✅ |
+| Resolver + tests | `core/src/resolver/` (`resolveTimeline`, `textAnimation`, `scene`) | ✅ |
+| State mirrors | `core/src/stores/` | ✅ |
+| Media library (assets) | `core/src/assets/` (`importFiles`, `librarySnapshot`, store) | ✅ |
+| Media decode pipeline | `core/src/media/video/` (`StreamingFrameProducer`, `FrameCache`, demuxer), `core/src/media/audio/` | ✅ |
+| Frame sequences | `core/src/frames/` | ✅ |
+| Renderer interface | `core/src/renderer/types.ts` | ✅ |
+| Renderer implementation | `core/src/renderer/gpu/` (`GpuRenderer`, `RenderGraph`, video / image / text / shape / freehand layers) | ✅ |
+| Export | `core/src/export/` (`exportVideo`, `ExportWorker`) | ✅ |
+| Trace / debug | `core/src/debug/trace.ts` | ✅ |
+| Actions | `core/src/actions/` | ✅ |
+| Utilities | `core/src/utils/` | ✅ |
+| Editor context, store hooks, audio hooks | `react/src/` | ✅ |
+| Timeline UI | `timeline/src/` (`Timeline`, `TrackRow`, `ClipBlock`, `useTimelineDrop`) | ✅ |
+| Editor composition | `editor/src/editor/` (`EditorProvider`, `AssetPanel`, `Preview`, `useResolvedScene`) | ✅ |
+| Design tokens | `editor/src/styles/tokens.css` | ✅ |
+| Headless CLI | `cli/src/` | ✅ |
 
-**Rule of thumb:** if a file logically belongs to a layer but doesn't have peers yet, it lives in `packages/editor/src/core/<layer>/`. When a layer accumulates 3+ files and gains its own dependencies, *then* extract it into its own package.
+**Rule of thumb:** new engine code goes in `core/src/<layer>/`. Do not add a sixth package until a layer has its own dependency set and audience; a package costs a build step, a version and a publish.
 
-For a cold-start implementation reference scoped to `core/`, see [`packages/editor/src/core/Architecture.md`](./packages/editor/src/core/Architecture.md).
+For a cold-start implementation reference scoped to the engine, see [`packages/editor/src/core/Architecture.md`](./packages/editor/src/core/Architecture.md).
 
 ---
 
@@ -676,7 +754,7 @@ Good: keep the surface area small. The day you need plugins, add the abstraction
 
 Bad: `@app/types`, `@app/utils`, `@app/frames`, `@app/snap`, `@app/id`. Each its own `package.json`. Each a build step.
 
-Good: one package until proven otherwise. Folders for organization, not packages.
+Good: a package exists only where the dependency set or the audience differs (React-free core, React bindings, timeline UI, editor composition, headless CLI). Everything else is a folder.
 
 ### A7. The hidden global.
 

@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'API Reference',
   description:
-    'API reference for @elah/core, @elah/timeline, and @elah/editor: TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, hooks, and types.',
+    'API reference for @elah/core, @elah/react, @elah/timeline, and @elah/editor: TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, hooks, and types.',
   alternates: { canonical: '/docs/api' },
 }
 
@@ -24,7 +26,6 @@ function Section({ id, title, children }: { id: string; title: string; children:
       <h2
         id={id}
         className="mb-5 border-b border-outline-variant pb-3 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20"
-        style={{ fontFamily: 'var(--font-inter), sans-serif' }}
       >
         {title}
       </h2>
@@ -69,15 +70,16 @@ export default function ApiPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Reference</div>
-          <h1 className="text-3xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-            API Reference
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            Complete reference for TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, React hooks, and TypeScript types.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          eyebrow="Reference"
+          title="API Reference"
+          lede={
+            <>
+              Complete reference for TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, React hooks, and TypeScript types.
+            </>
+          }
+        />
 
         {/* TimelineEngine */}
         <Section id="timeline-engine" title="TimelineEngine">
@@ -120,7 +122,30 @@ export default function ApiPage() {
           <ApiEntry
             name="addTrack"
             signature="engine.addTrack(kind: TrackKind, options?: Partial<CreateTrackOptions>): Track"
-            description="Adds a new track. Video is capped at one lane — adding a video track when one exists returns the existing track (idempotent)."
+            description="Adds a new track. Any number of tracks of any kind is allowed. Video tracks composite in track order (the topmost lane draws on top) and a new video track is placed directly below the last existing one; other kinds append, above any bottom-pinned lane."
+            params={[
+              { name: 'name', type: 'string?', desc: 'Display name; defaults to a kind-based name' },
+              { name: 'height', type: 'number?', desc: 'Lane height in px (default 64)' },
+              { name: 'order', type: 'number?', desc: 'Explicit render order; normally left to the engine' },
+              { name: 'protected', type: 'boolean?', desc: 'When true, the user cannot remove the track' },
+              { name: 'pinned', type: "'bottom'?", desc: 'Keeps the lane below every non-pinned track, whatever is added later' },
+            ]}
+          />
+
+          <ApiEntry
+            name="loadProject"
+            signature="engine.loadProject(project: Project, options?: { transport?: 'rewind' | 'keep'; history?: 'reset' | 'keep' }): void"
+            description="Replaces the whole composition. Pass the result of readProjectDocument(json), which throws ProjectDocumentError for an unreadable or too-new document. By default undo history is cleared and the playhead rewinds; { transport: 'keep', history: 'keep' } is for the relinkProjectMedia repair pass over a composition that is already on screen. Emits 'change' then 'project:loaded'."
+            params={[
+              { name: 'transport', type: "'rewind' | 'keep'", desc: "'rewind' (default) stops and returns to frame 0; 'keep' leaves the playhead alone" },
+              { name: 'history', type: "'reset' | 'keep'", desc: "'reset' (default) clears undo/redo; 'keep' preserves the stacks and any open batch or drag" },
+            ]}
+          />
+
+          <ApiEntry
+            name="setClipSpeed"
+            signature="engine.setClipSpeed(clipId: string, trackId: string, speed: number): void"
+            description="Sets a video clip's playback multiplier, clamped to 0.25–4. The clip's on-timeline length follows the new speed; growth is clamped to the gap before the next clip."
           />
 
           <ApiEntry
@@ -266,7 +291,7 @@ renderer.dispose()               // cleanup on unmount`}
         {/* Hooks */}
         <Section id="hooks" title="Hooks">
           <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
-            All hooks below live in <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> and are re-exported by <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/editor</code> — install <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> directly if you&apos;re building custom UI on <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/core</code> without the full editor SDK.
+            All hooks below live in <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> and are re-exported by <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/editor</code> — install <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code> directly if you&apos;re building custom UI on <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/core</code> without the full editor SDK. The <Link href="/docs/react" className="text-primary hover:underline">@elah/react page</Link> covers the context, the store hooks, the audio hooks and using the same stores without React in detail.
           </p>
           <div className="space-y-4">
             {[
@@ -301,6 +326,16 @@ renderer.dispose()               // cleanup on unmount`}
                 desc: 'Zustand store for all transitions.',
               },
               {
+                hook: 'useTextStylePresetsStore(selector)',
+                returns: 'T',
+                desc: 'Zustand store for reusable text looks: the built-in presets plus any the user saves.',
+              },
+              {
+                hook: 'useClipLoadStore(selector)',
+                returns: 'T',
+                desc: "Zustand store of which clips the preview cannot draw yet: byClipId[id] is 'loading' or 'error'. Renderer state only; never saved or undoable.",
+              },
+              {
                 hook: 'useMediaLibrary()',
                 returns: 'UseMediaLibraryApi',
                 desc: 'Access the media library. Returns { assets, getAsset, removeAsset, updateAsset, importFiles, importUrl, importBlob }.',
@@ -322,9 +357,9 @@ renderer.dispose()               // cleanup on unmount`}
               },
             ].map(({ hook, returns, desc }) => (
               <div key={hook} className="rounded-md border border-outline-variant bg-surface-low p-4">
-                <div className="mb-1.5 flex items-start gap-3">
+                <div className="mb-1.5 flex flex-wrap items-start gap-x-3 gap-y-1.5">
                   <code className="font-mono text-sm font-medium text-on-surface">{hook}</code>
-                  <span className="mt-0.5 rounded bg-surface-container px-2 py-0.5 font-mono text-xs text-on-surface-variant">
+                  <span className="mt-0.5 min-w-0 max-w-full break-words rounded bg-surface-container px-2 py-0.5 font-mono text-xs text-on-surface-variant">
                     → {returns}
                   </span>
                 </div>
@@ -336,6 +371,9 @@ renderer.dispose()               // cleanup on unmount`}
 
         {/* Types */}
         <Section id="types" title="Types">
+          <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
+            The clip and track fields added in 0.6.0 (<code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Clip.speed</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Clip.crop</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Clip.cornerRadius</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Track.protected</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">Track.pinned</code>) are explained on <Link href="/docs/clips" className="text-primary hover:underline">Clips &amp; Tracks</Link>. Layered text motion is on <Link href="/docs/text-templates-and-motion" className="text-primary hover:underline">Text Templates &amp; Motion</Link>.
+          </p>
           <CodeBlock
             language="typescript"
             filename="types.ts"
@@ -369,6 +407,8 @@ interface Track {
   muted: boolean
   solo: boolean
   volume?: number         // 0..2, linear
+  protected?: boolean     // the user cannot remove this track
+  pinned?: 'bottom'       // addTrack keeps this lane below every non-pinned track
 }
 
 interface Clip {
@@ -385,6 +425,9 @@ interface Clip {
   transform?: Transform
   opacity?: number              // 0..1
   volume?: number               // 0..1
+  speed?: number                // video only; 0.25..4, default 1
+  cornerRadius?: number         // video/image; 0..0.5 of the shorter side
+  crop?: { x: number; y: number; width: number; height: number } // 0..1 of the source
   locked?: boolean
   disabled?: boolean
   // Text clips (flat fields, not a nested object):
@@ -395,6 +438,7 @@ interface Clip {
   fontWeight?: 'normal' | 'bold'
   textAlign?: 'left' | 'center' | 'right'
   textAnimation?: TextAnimation
+  shapeAnimation?: TextAnimation
   // Shape / freehand clips have their own shape*/stroke*/pathData fields.
 }
 
@@ -402,15 +446,34 @@ interface Transform {
   x: number        // 0..1, normalized to stage width
   y: number        // 0..1, normalized to stage height
   scale: number    // 1 = native size
+  scaleX?: number  // extra horizontal stretch on top of scale; omitted = 1
+  scaleY?: number  // extra vertical stretch on top of scale; omitted = 1
   rotation: number // radians, positive = clockwise
   anchor: { x: number; y: number } // 0..1 within the clip box
 }
 
 // Entry/exit ramp for text (and shape) clips.
+type TextAnimationKind = 'fade' | 'spin' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right'
+
 interface TextAnimation {
-  in?: 'fade'
-  out?: 'fade'
+  in?: TextAnimationKind
+  out?: TextAnimationKind
   durationFrames: number
+  // Layered motion. When present it replaces in / out; used by text templates.
+  inMotion?: MotionSpec
+  outMotion?: MotionSpec
+}
+
+// One end of a layered animation: the state at the FAR end of the ramp.
+// The near end is always the clip's resting state. Omitted channels stay at rest.
+interface MotionSpec {
+  opacity?: number       // 0..1
+  offsetX?: number       // fraction of stage width
+  offsetY?: number       // fraction of stage height
+  scale?: number         // multiplier on the authored scale
+  rotation?: number      // radians
+  ease?: TextAnimationEasing        // geometry channels
+  opacityEase?: TextAnimationEasing // default 'linear'
 }
 
 interface Transition {
@@ -435,7 +498,9 @@ interface ExportOptions {
   audioCodec?: ExportAudioCodec
   videoBitrate?: number           // bits/s, default 8 Mbps
   audioBitrate?: number           // bits/s, default 128 kbps
-  outputHeight?: number           // scale output; default = stage height
+  outputHeight?: number           // target SHORT edge in px (1080 = 1080p in either
+                                  // orientation); other edge is rounded to even.
+                                  // Default = the stage's own short edge
   onProgress?: (p: ExportProgress) => void
   signal?: AbortSignal
 }

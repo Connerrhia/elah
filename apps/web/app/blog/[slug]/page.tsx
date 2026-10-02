@@ -55,7 +55,6 @@ function renderBlock(block: Block, i: number) {
           key={i}
           id={block.id}
           className="mb-4 mt-10 scroll-mt-24 text-xl font-semibold tracking-tight text-on-surface"
-          style={{ fontFamily: 'var(--font-inter), sans-serif' }}
         >
           {block.text}
         </h2>
@@ -156,7 +155,6 @@ export default async function BlogPostPage({
             </div>
             <h1
               className="text-3xl font-semibold tracking-tight text-on-surface md:text-4xl"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
             >
               {post.title}
             </h1>

@@ -1,12 +1,13 @@
-import { Navbar } from '@/components/marketing/Navbar'
-import { Footer } from '@/components/marketing/Footer'
+import { SiteNav } from '@/components/site/SiteNav'
+import { SiteFooter } from '@/components/site/SiteFooter'
 import { DocsSidebar } from '@/components/docs/DocsSidebar'
 import { DocsMobileNav } from '@/components/docs/DocsMobileNav'
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <Navbar />
+      {/* Bar, not the floating pill: the sidebar is persistent and long docs should not lose their nav. */}
+      <SiteNav variant="bar" />
       {/* Outside the max-w row so the sub-bar's border spans the full width. */}
       <DocsMobileNav />
       <div className="mx-auto flex w-full max-w-7xl flex-1 px-4 sm:px-6">
@@ -15,7 +16,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
       </div>
-      <Footer />
+      <SiteFooter />
     </div>
   )
 }

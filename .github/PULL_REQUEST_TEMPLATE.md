@@ -36,5 +36,5 @@ Closes #
 
 - [ ] `npm test` passes
 - [ ] `npm run typecheck` passes
-- [ ] I've tested this in the playground
+- [ ] I've tested this in the dev app (`npm run dev`, http://localhost:3001)
 - [ ] No `any` types introduced without justification

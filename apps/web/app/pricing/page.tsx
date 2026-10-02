@@ -4,6 +4,7 @@ import { Github, Mail, MessageCircle, Check } from 'lucide-react'
 import { Navbar } from '@/components/marketing/Navbar'
 import { Footer } from '@/components/marketing/Footer'
 import { siteConfig } from '@/config/site'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 
 const openSourceIncludes = [
   'The full engine, timeline, WebGL2 renderer, and MP4 export',
-  'All four packages: @elah/core, @elah/timeline, @elah/editor, @elah/cli',
+  'All five packages: @elah/core, @elah/react, @elah/timeline, @elah/editor, @elah/cli',
   'Every framework binding as it ships',
   'Self-hosted server-side rendering via @elah/cli — no license fee',
   'Community support on Discord and GitHub',
@@ -27,25 +28,18 @@ export default function PricingPage() {
 
       <main className="flex-1">
         {/* Header */}
-        <div className="border-b border-outline-variant bg-surface py-14">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <div className="label-mono mb-3 text-2xs text-on-surface-variant opacity-90">
-              Pricing
-            </div>
-            <h1
-              className="text-3xl font-semibold tracking-tight text-on-surface md:text-4xl"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-            >
-              Open source. Support available on request.
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+        <PageHeader
+          eyebrow="Pricing"
+          title="Open source. Support available on request."
+          lede={
+            <>
               elah is free to build on, embed, self-host, and ship in commercial
               products under Apache-2.0 — no license fee, no gated features. If you
               want dedicated support, priority help, or custom integration work,
               reach out — we&apos;ll work something out.
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* Cards */}
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -57,7 +51,6 @@ export default function PricingPage() {
               </div>
               <h2
                 className="text-2xl font-semibold tracking-tight text-on-surface"
-                style={{ fontFamily: 'var(--font-inter), sans-serif' }}
               >
                 Free
               </h2>
@@ -101,7 +94,6 @@ export default function PricingPage() {
               </div>
               <h2
                 className="text-2xl font-semibold tracking-tight text-on-surface"
-                style={{ fontFamily: 'var(--font-inter), sans-serif' }}
               >
                 Let&apos;s talk
               </h2>

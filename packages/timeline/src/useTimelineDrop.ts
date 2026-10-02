@@ -4,22 +4,15 @@ import {
   MEDIA_DRAG_MIME,
   mediaDragKindMime,
   snapFrame,
-  playbackStore,
-  tracksStore,
   type DragMediaPayload,
   type MediaKind,
   type TrackKind,
 } from '@elah/core'
+import { usePlaybackStore, useTracksStore } from '@elah/react'
 import { ELEMENT_DRAG_MIME, type DragElementPayload } from './elementDrag'
 import { useTimeline } from './engine-context'
 import { insertElement, insertMediaAsset } from './insertAsset'
-
-/** Whether a media asset can be placed on a track of the given kind. */
-function isCompatibleTrackKind(trackKind: TrackKind, mediaKind: MediaKind): boolean {
-  if (trackKind === 'audio') return mediaKind === 'audio'
-  if (trackKind === 'video') return mediaKind === 'video' || mediaKind === 'image'
-  return false
-}
+import { isCompatibleTrackKind } from './trackCompat'
 
 const MEDIA_KINDS: MediaKind[] = ['video', 'audio', 'image']
 
@@ -70,7 +63,10 @@ export type TimelineDropState = 'valid' | 'invalid' | null
  * @returns The lane's current drag-over state — used to highlight the drop
  *          target so it's obvious where (and whether) the drop will land.
  */
-export function useTimelineDrop(trackId: string, lane: HTMLElement | null): TimelineDropState {
+export function useTimelineDrop(
+  trackId: string,
+  lane: HTMLElement | null,
+): TimelineDropState {
   const engine = useTimeline()
   const [dropState, setDropState] = useState<TimelineDropState>(null)
 
@@ -89,14 +85,14 @@ export function useTimelineDrop(trackId: string, lane: HTMLElement | null): Time
 
     /** Pointer x -> timeline frame, snapped to clips + the playhead when enabled. */
     const startFrameAt = (clientX: number): number => {
-      const zoom = playbackStore.getState().zoom
+      const zoom = usePlaybackStore.getState().zoom
       const rect = lane.getBoundingClientRect()
       let startFrame = Math.max(0, Math.round((clientX - rect.left) / zoom))
 
-      if (playbackStore.getState().snapEnabled) {
-        const allClips = tracksStore.getState().clips
+      if (usePlaybackStore.getState().snapEnabled) {
+        const allClips = useTracksStore.getState().clips
         const snapPoints = buildSnapPoints(allClips)
-        snapPoints.push(playbackStore.getState().currentFrame)
+        snapPoints.push(usePlaybackStore.getState().currentFrame)
         const threshold = Math.max(1, Math.round(5 / zoom))
         startFrame = snapFrame(startFrame, snapPoints, threshold)
       }
@@ -105,7 +101,7 @@ export function useTimelineDrop(trackId: string, lane: HTMLElement | null): Time
 
     const handleDragOver = (e: DragEvent) => {
       if (!acceptsDrag(e)) return
-      const track = tracksStore.getState().tracks.find((t) => t.id === trackId)
+      const track = useTracksStore.getState().tracks.find((t) => t.id === trackId)
       if (!track || !isDropAllowed(e, track)) {
         // Not a legal drop here (locked track or incompatible kind) — show the
         // no-drop cursor and, by not calling preventDefault, let the browser
@@ -119,8 +115,8 @@ export function useTimelineDrop(trackId: string, lane: HTMLElement | null): Time
 
     const handleDragEnter = (e: DragEvent) => {
       if (!acceptsDrag(e)) return
-      const track = tracksStore.getState().tracks.find((t) => t.id === trackId)
       dragDepth += 1
+      const track = useTracksStore.getState().tracks.find((t) => t.id === trackId)
       setDropState(track && isDropAllowed(e, track) ? 'valid' : 'invalid')
     }
 
@@ -136,16 +132,17 @@ export function useTimelineDrop(trackId: string, lane: HTMLElement | null): Time
     }
 
     const dropMediaAsset = (e: DragEvent, desiredStartFrame: number) => {
+      const raw = e.dataTransfer!.getData(MEDIA_DRAG_MIME)
       let payload: DragMediaPayload
       try {
-        payload = JSON.parse(
-          e.dataTransfer!.getData(MEDIA_DRAG_MIME),
-        ) as DragMediaPayload
+        payload = JSON.parse(raw) as DragMediaPayload
       } catch {
         return
       }
 
-      if (payload.kind !== 'media-asset' || !payload.assetId) return
+      if (payload.kind !== 'media-asset' || !payload.assetId) {
+        return
+      }
       void insertMediaAsset(engine, payload.assetId, {
         desiredStartFrame,
         targetTrackId: trackId,
@@ -169,15 +166,21 @@ export function useTimelineDrop(trackId: string, lane: HTMLElement | null): Time
     }
 
     const handleDrop = (e: DragEvent) => {
-      if (!acceptsDrag(e)) return
+      if (!acceptsDrag(e)) {
+        return
+      }
       e.preventDefault()
       resetDragState()
 
-      const track = tracksStore
+      const track = useTracksStore
         .getState()
         .tracks.find((t) => t.id === trackId)
-      if (!track) return
-      if (track.locked) return // locked tracks reject new clips
+      if (!track) {
+        return
+      }
+      if (track.locked) {
+        return // locked tracks reject new clips
+      }
 
       // clientX must be read before any await in the insertion helper.
       const desiredStartFrame = startFrameAt(e.clientX)

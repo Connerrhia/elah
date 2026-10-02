@@ -5,7 +5,7 @@ React timeline UI for the Elah video engine. Renders tracks, clips, ruler, and p
 A consumer of `@elah/core`. Owns no project state — all state lives in the core stores.
 
 [![npm](https://img.shields.io/npm/v/@elah/timeline)](https://www.npmjs.com/package/@elah/timeline)
-[![gzip size](https://img.shields.io/badge/gzip-12%20KiB-brightgreen)](../../BUNDLE_STRATEGY.md)
+[![gzip size](https://img.shields.io/badge/gzip-~15%20KiB-brightgreen)](../../BUNDLE_STRATEGY.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/elahlabs/elah/blob/main/LICENSE)
 
 ---
@@ -21,7 +21,7 @@ Peer dependencies: `react`, `react-dom` >= 18, `lucide-react` >= 0.400.0 (used d
 needs it). Engine/playback context (`EditorContext`, `useTimelineEngine`) comes from
 `@elah/react`, a runtime dependency pulled in automatically.
 
-**Bundle size:** ~12 KiB gzipped (61 KiB raw, `tsc` ESM output). UI layer only — project state lives in `@elah/core`.
+**Bundle size:** ~15 KiB gzipped, minified and tree-shaken (~21 KiB with `clsx` and `tailwind-merge`). UI layer only — project state lives in `@elah/core`.
 
 ---
 
@@ -29,11 +29,9 @@ needs it). Engine/playback context (`EditorContext`, `useTimelineEngine`) comes 
 
 | Component | Description |
 |---|---|
-| `Timeline` | Root surface — tracks, ruler, playhead, gesture wiring |
-| `Ruler` | Time ruler — click or drag to scrub |
-| `TrackRow` | Single track lane with clip blocks and drop target |
-| `ClipBlock` | Individual clip — drag to move, edge-drag to trim |
-| `Playhead` | Playhead needle driven by `usePlaybackStore` |
+| `Timeline` | The one exported component — tracks, ruler, playhead, gesture wiring. Drag to move, edge-drag to trim, click or drag the ruler to scrub |
+
+The ruler, track rows, clip blocks and playhead are internals of `Timeline`: they are not exported. Restyle them with the `classNames` prop and `--elah-*` variables (below).
 
 ---
 
@@ -85,6 +83,10 @@ import '@elah/timeline/styles.css'
 import '@elah/editor/styles/tokens.css' // --elah-* defaults (standalone use)
 ```
 
+`tokens.css` ships in `@elah/editor`, which this package does not depend on: either
+`npm install @elah/editor` just for that file, or define the `--elah-*` variables yourself
+inside `.elah-root` (see `THEMING.md` in this package).
+
 Colors are driven by `--elah-*` CSS variables. Re-theme by overriding them in your
 own `.elah-root` scope — see [design-tokens.md](https://github.com/elahlabs/elah/blob/main/docs/design-tokens.md).
 
@@ -130,9 +132,13 @@ Slots: `root`, `ruler`, `rulerTick`, `rulerLabel`, `track`, `trackLabel`, `lane`
 import { useTracks, usePlayback, useSelection } from '@elah/timeline'
 
 const tracks = useTracks(s => s.tracks)
-const { currentFrame, isPlaying } = usePlayback(s => s)
-const { selectedClipIds } = useSelection(s => s)
+const isPlaying = usePlayback(s => s.isPlaying)
+const selectedClipIds = useSelection(s => s.selectedClipIds)
 ```
+
+These are aliases of `useTracksStore`, `usePlaybackStore` and `useSelectionStore` from `@elah/react`;
+keep the selector narrow (`usePlayback(s => s)` re-renders on every frame of playback).
+`useTimeline()` returns the `TimelineEngine` from context.
 
 ---
 
@@ -141,20 +147,53 @@ const { selectedClipIds } = useSelection(s => s)
 Attach media drop handlers to any track lane element. `useTimelineDrop(trackId, lane)`
 takes the track id and the lane DOM node positionally, and reads the engine from
 the `EditorContext` (so it must run inside the provider). It wires the handlers as
-a side-effect and returns nothing:
+a side-effect and returns the lane's drag-over state, `TimelineDropState`:
+`'valid'` (compatible drag hovering), `'invalid'` (incompatible kind or locked track)
+or `null` (no drag), for highlighting the drop target:
 
 ```tsx
-import { useRef } from 'react'
+import { useState } from 'react'
 import { useTimelineDrop } from '@elah/timeline'
 
 function Lane({ trackId }: { trackId: string }) {
-  const laneRef = useRef<HTMLDivElement>(null)
-  useTimelineDrop(trackId, laneRef.current)
-  return <div ref={laneRef} />
+  // State, not useRef: the hook needs the node on a render after it mounts.
+  const [lane, setLane] = useState<HTMLDivElement | null>(null)
+  const dropState = useTimelineDrop(trackId, lane)
+  return <div ref={setLane} data-drop={dropState ?? undefined} />
 }
 ```
 
 Dragging a media asset from the library onto the lane resolves drop position to `startFrame` (respects zoom and snap).
+
+### Inserting before the media is probed
+
+`insertMediaAsset(engine, assetId, opts?)` and `insertElement(engine, payload, opts?)` place clips without dragging. For a remote asset
+started with core's `beginImportUrl` (which returns a pending asset immediately), insert
+the clip with a fallback length, then call `growClipToAssetDuration` once the real
+duration is known. It is the companion of `beginImportUrl` for hosts that insert a clip
+before its media has been probed:
+
+```ts
+import { growClipToAssetDuration } from '@elah/timeline'
+
+// growClipToAssetDuration(engine, clipId, expectedFallbackFrames, newDurationSec)
+growClipToAssetDuration(engine, clipId, fallbackFrames, durationSec)
+```
+
+It only grows into the gap before the next clip (never creating an overlap) and leaves a
+clip alone if the user already trimmed it away from the fallback length.
+
+---
+
+## Zoom and multiple video tracks
+
+The `Timeline` ref exposes `{ engine, playback, fitToWindow, zoomAtAnchor }`.
+`zoomAtAnchor(nextZoom)` zooms anchored on the playhead when it is in view, else on the
+viewport centre, so a toolbar zoom button or slider never scrolls the playhead away. Use it
+instead of a raw `setZoom`.
+
+The timeline renders any number of video tracks; the topmost lane composites on top. Only
+clips inside the scrolled viewport (plus a margin) are mounted, so long timelines stay cheap.
 
 ---
 

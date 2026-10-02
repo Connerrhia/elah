@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
 import { currentVersion } from '@/config/changelog'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Installation',
@@ -23,27 +24,25 @@ export default function InstallationPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Getting Started</div>
-          <h1
-            id="installation"
-            className="text-3xl font-semibold tracking-tight text-on-surface"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-          >
-            Installation
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            Add elah to your React application. The SDK is published to npm as{' '}
+        <PageHeader
+          variant="doc"
+          id="installation"
+          eyebrow="Getting Started"
+          title="Installation"
+          lede={
+            <>
+              Add elah to your React application. The SDK is published to npm as{' '}
             <code className="rounded bg-surface-container px-1.5 py-0.5 text-sm font-mono">@elah/editor</code> — install it with your package manager and wire it into Next.js or Vite. It pulls in{' '}
             <code className="rounded bg-surface-container px-1.5 py-0.5 text-sm font-mono">@elah/core</code>,{' '}
             <code className="rounded bg-surface-container px-1.5 py-0.5 text-sm font-mono">@elah/timeline</code>, and{' '}
             <code className="rounded bg-surface-container px-1.5 py-0.5 text-sm font-mono">@elah/react</code> automatically.
-          </p>
-        </div>
+            </>
+          }
+        />
 
         {/* Requirements */}
         <section className="mb-10">
-          <h2 id="requirements" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="requirements" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Requirements
           </h2>
           <div className="overflow-hidden rounded-md border border-outline-variant">
@@ -68,7 +67,7 @@ export default function InstallationPage() {
 
         {/* Install */}
         <section className="mb-10">
-          <h2 id="npm-install" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="npm-install" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Install
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -96,7 +95,7 @@ bun add @elah/editor lucide-react`}
 
         {/* CLI install */}
         <section className="mb-10">
-          <h2 id="cli-install" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="cli-install" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             CLI (optional)
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -120,7 +119,7 @@ bun add @elah/editor lucide-react`}
 
         {/* Peer dependencies */}
         <section className="mb-10">
-          <h2 id="peer-deps" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="peer-deps" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Peer Dependencies
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -164,7 +163,7 @@ bun add @elah/editor lucide-react`}
 
         {/* Next.js setup */}
         <section className="mb-10">
-          <h2 id="nextjs-config" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="nextjs-config" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Next.js Setup
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -207,7 +206,7 @@ export default function Page() {
 
         {/* Vite setup */}
         <section className="mb-10">
-          <h2 id="vite-config" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="vite-config" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Vite Setup
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">

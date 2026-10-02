@@ -19,6 +19,7 @@ import { TransitionChip } from './TransitionChip'
 import { useTimeline } from './engine-context'
 import { useTimelineDrop } from './useTimelineDrop'
 import { cn } from './cn'
+import { timelineContentWidth } from './contentWidth'
 import { useVisibleWindow, isClipVisible, VIRTUALIZATION_BUFFER_PX } from './visible-window'
 
 /** Sidebar width — kept in sync with SIDEBAR_WIDTH in Timeline.tsx (ruler offset). */
@@ -145,9 +146,9 @@ export const TrackRow = memo(function TrackRow({
     stop(e)
     engine.removeTrack(track.id)
   }
-
   // Only allow deleting a track when more than one of its kind exists — never
-  // remove the last audio/text track (video is single by model).
+  // remove the last track of a kind. Protected tracks are never deletable
+  // (TimelineEngine.removeTrack is a no-op for them), so no button is shown.
   const sameKindCount = useTracksStore(
     (s) => s.tracks.filter((t) => t.kind === track.kind).length,
   )
@@ -171,7 +172,7 @@ export const TrackRow = memo(function TrackRow({
 
   // Minimum pixel width so there is always a usable timeline on small screens.
   // flex:1 grows it to fill the container when the container is larger.
-  const rowMinWidth = Math.max(totalFrames * zoom, 800)
+  const rowMinWidth = timelineContentWidth(totalFrames, zoom)
 
   // Per-track-kind accent (the colored left bar). The matching clip accent slot
   // overrides the default mid token (both as a text-color class read via
@@ -240,8 +241,8 @@ export const TrackRow = memo(function TrackRow({
           </span>
         )}
 
-        {/* Per-track controls — visibility, mute (audio only), lock.
-            Hidden in compact mode: a ~48px sidebar fits only the kind glyph. */}
+        {/* Per-track controls — visibility, mute (audio only), lock, delete
+            (never for protected tracks). Hidden in compact mode. */}
         {!compact && (
         <span style={{ display: 'inline-flex', gap: 1, flexShrink: 0 }}>
           <button
@@ -299,8 +300,8 @@ export const TrackRow = memo(function TrackRow({
             )}
           </button>
 
-          {/* Delete — only when more than one track of this kind exists. */}
-          {sameKindCount > 1 && (
+          {/* Delete — only when more than one track of this kind exists (never remove the last of a kind). */}
+          {sameKindCount > 1 && !track.protected && (
             <button
               type="button"
               onClick={deleteTrack}
@@ -318,6 +319,13 @@ export const TrackRow = memo(function TrackRow({
       {/* Clip area — bottom border is static */}
       <div
         ref={setLaneEl}
+        // Read by ClipBlock's cross-track drag gesture (elementsFromPoint under
+        // the pointer -> nearest [data-elah-lane]) to resolve which track a
+        // clip is being dragged over.
+        data-elah-lane=""
+        data-track-id={track.id}
+        data-track-kind={track.kind}
+        data-track-locked={track.locked ? 'true' : undefined}
         className={cn(
           'border-ed-border-subtle',
           isActive ? 'bg-ed-card' : 'bg-ed-bg-2',

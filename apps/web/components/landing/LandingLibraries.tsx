@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { Icon } from './Icon'
+import { ArrowRight } from 'lucide-react'
 import { CardHeader } from './CardHeader'
 import { libraries } from './landingData'
+import { Spotlight } from './motion/Spotlight'
 
 export function LandingLibraries() {
   return (
@@ -22,12 +23,13 @@ export function LandingLibraries() {
           Choose a library.
         </h2>
         <p style={{ color: 'var(--muted)', fontSize: 16, maxWidth: 540, margin: '0 0 44px', lineHeight: 1.6 }}>
-          Four composable packages. Drop in the whole editor, or take only the layer you need.
+          Five composable packages. Drop in the whole editor, or take only the layer you need.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px,1fr))', gap: 18 }}>
           {libraries.map((lib) => (
-            <div
+            <Spotlight
               key={lib.pkg}
+              lift={4}
               className="lv-pgcard"
               style={{
                 border: '1px solid var(--line)',
@@ -63,10 +65,10 @@ export function LandingLibraries() {
                   }}
                 >
                   Try
-                  <Icon name="arrow_forward" size={15} />
+                  <ArrowRight size={15}  />
                 </Link>
               </div>
-            </div>
+            </Spotlight>
           ))}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'CLI & Server',
@@ -51,27 +52,25 @@ export default function CliPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">CLI &amp; Server</div>
-          <h1
-            id="cli"
-            className="text-3xl font-semibold tracking-tight text-on-surface"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-          >
-            CLI &amp; Server
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            The same engine that powers the in-browser editor runs headlessly on your
+        <PageHeader
+          variant="doc"
+          id="cli"
+          eyebrow="CLI &amp; Server"
+          title="CLI &amp; Server"
+          lede={
+            <>
+              The same engine that powers the in-browser editor runs headlessly on your
             server. <code className="rounded bg-surface-container px-1.5 py-0.5 text-sm font-mono">@elah/cli</code>{' '}
             is a thin consumer of <code className="rounded bg-surface-container px-1.5 py-0.5 text-sm font-mono">@elah/core</code>&apos;s
             public APIs — build projects from JSON specs, export MP4s, or run a
             long-lived HTTP render server.
-          </p>
-        </div>
+            </>
+          }
+        />
 
         {/* Install */}
         <section className="mb-10">
-          <h2 id="install" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="install" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Install
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -98,7 +97,7 @@ npx @elah/cli serve`}
 
         {/* Commands */}
         <section className="mb-10">
-          <h2 id="commands" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="commands" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Commands
           </h2>
           <div className="overflow-hidden rounded-md border border-outline-variant">
@@ -125,7 +124,7 @@ npx @elah/cli serve`}
 
         {/* Build spec */}
         <section className="mb-10">
-          <h2 id="build-spec" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="build-spec" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             The Build Spec
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -164,7 +163,7 @@ npx @elah/cli serve`}
             <li><strong className="text-on-surface">Times are seconds</strong> (floats fine), converted to integer frames at <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">fps</code> (default 30). <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">stage</code> defaults to 1920×1080.</li>
             <li><strong className="text-on-surface">assets</strong> maps names to paths relative to the spec file, or <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">http(s)</code> URLs.</li>
             <li><strong className="text-on-surface">x</strong>/<strong className="text-on-surface">y</strong> are the normalized (0..1) stage position of the clip&apos;s center; <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">scale</code> is relative to native size.</li>
-            <li><strong className="text-on-surface">Overlaps</strong>: video clips must not overlap (single video track, engine-enforced); overlapping text/image/audio clips are automatically placed on additional tracks.</li>
+            <li><strong className="text-on-surface">Overlaps</strong>: the spec places every video clip on one video track, so video clips must not overlap (the build errors; the engine itself supports more video tracks, the spec format does not); overlapping text/image/audio clips are automatically placed on additional tracks.</li>
           </ul>
           <p className="mt-4 mb-4 text-sm leading-relaxed text-on-surface-variant">
             Then build and export in one step:
@@ -177,7 +176,7 @@ npx @elah/cli serve`}
 
         {/* Serve */}
         <section className="mb-10">
-          <h2 id="serve" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="serve" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Serve Mode
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -220,7 +219,7 @@ npx @elah/cli serve`}
 
         {/* How rendering works */}
         <section className="mb-10">
-          <h2 id="rendering" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="rendering" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             How Rendering Works
           </h2>
           <p className="text-sm leading-relaxed text-on-surface-variant">
@@ -237,7 +236,7 @@ npx @elah/cli serve`}
 
         {/* Docker */}
         <section className="mb-10">
-          <h2 id="docker" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="docker" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Docker &amp; Self-Hosting
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -268,7 +267,7 @@ docker run -p 8080:8080 elah-render`}
 
         {/* Library API */}
         <section className="mb-10">
-          <h2 id="library-api" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="library-api" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Library API
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">

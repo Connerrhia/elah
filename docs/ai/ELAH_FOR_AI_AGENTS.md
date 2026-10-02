@@ -6,7 +6,7 @@ Written for AI coding tools that get one shot and no repo access — Lovable, Go
 Emergent, v0, bolt.new — as well as repo-aware agents (Claude Code, Codex, Cursor, Gemini CLI).
 Nothing here requires reading another file.
 
-- **Version:** `@elah/editor@0.4.1` · **License:** Apache-2.0
+- **Version:** `@elah/editor@0.6.0` · **License:** Apache-2.0
 - **Repo:** https://github.com/elahlabs/elah · **Docs:** https://www.elah.dev/docs
 
 **Working code, if you can fetch a URL.** Three runnable apps that install this exact version
@@ -22,7 +22,8 @@ from npm — every config and import in this guide is applied and verified there
 [3 Stylesheets](#3-the-three-stylesheets-most-common-mistake) · [4 Bundler](#4-bundler-setup) ·
 [5 Mental model](#5-mental-model) · [6 API reference](#6-api-reference) ·
 [7 Recipes](#7-recipes) · [8 Common mistakes](#8-common-mistakes) ·
-[9 Browser support](#9-browser-support-and-host-platforms)
+[9 Browser support](#9-browser-support-and-host-platforms) ·
+[10 Headless rendering with the CLI](#10-headless-rendering-with-elahcli)
 
 ---
 
@@ -177,7 +178,7 @@ Four rules that explain almost every bug:
 ```tsx
 <EditorProvider
   fps={30}                                   // required
-  stage={{ width: 1920, height: 1080 }}      // default 1920x1080
+  stage={{ width: 1920, height: 1080 }}      // default is PORTRAIT 1080x1920; pass a stage for landscape
   defaultTrackHeight={36}
   maxHistorySize={100}
   initialTracks={[
@@ -233,7 +234,10 @@ Ref handle: `PreviewHandle = { getCanvas(), getRenderer() }`.
 />
 ```
 
-`TimelineRef = { engine, playback, fitToWindow() }`. `TimelineClassNames` has slots for
+`TimelineRef = { engine, playback, fitToWindow(), zoomAtAnchor(nextZoom) }`. `zoomAtAnchor` zooms
+anchored on the playhead when it is in view, else on the viewport centre, so a zoom button or
+slider never scrolls the playhead away — use it instead of a raw `setZoom`. Any number of video
+tracks is supported, and only clips inside the scrolled viewport are mounted. `TimelineClassNames` has slots for
 `root`, `ruler`, `rulerTick`, `rulerLabel`, `track`, `trackLabel`, `lane`, `clip`,
 `clipVideo` / `clipAudio` / `clipText` / `clipImage` (each with an `*Accent` variant),
 and `playhead`.
@@ -260,6 +264,8 @@ and `playhead`.
 | `useTracksStore(selector)` | `tracks`, `clips`, `stage`, `totalFrames`, `canUndo`, `canRedo` |
 | `useSelectionStore(selector)` | `selectedClipIds: Set<string>`, `activeTrackId` + `selectClip`, `toggleClipSelection`, `selectClips`, `clearSelection`, `setActiveTrack` |
 | `useTransitionsStore(selector)` | Transition state |
+| `useTextStylePresetsStore(selector)` | Reusable text looks: the built-in presets (`BUILT_IN_TEXT_STYLE_PRESETS`) plus user-saved ones |
+| `useClipLoadStore(selector)` | `byClipId: Record<clipId, 'loading' \| 'error'>` — clips the preview cannot draw yet. Renderer state: never saved, never undoable |
 | `useMediaLibrary()` / `useAssets()` | `{ assets, getAsset, removeAsset, updateAsset, importFiles, importUrl, importBlob }` |
 | `useResolvedScene(frame?)` | The `Scene` at the current frame — for custom overlays |
 | `useAudioMixer(controller)` | `{ setMasterGain, setTrackGain }` |
@@ -271,7 +277,7 @@ and `playhead`.
 
 Each store hook also carries `.getState()` and `.subscribe()` for imperative use outside
 React. Outside React entirely, use the vanilla stores: `playbackStore`, `tracksStore`,
-`selectionStore`, `transitionsStore`, `mediaLibraryStore`.
+`selectionStore`, `transitionsStore`, `mediaLibraryStore`, `textStylePresetsStore`, `clipLoadStore`.
 
 ### `TimelineEngine`
 
@@ -282,15 +288,23 @@ const engine = useTimelineEngine()
 **Read:** `getProject()` · `getTrack(trackId)` · `getClipsOnTrack(trackId)` ·
 `findClip(clipId)` · `getTotalFrames()` · `canUndo()` · `canRedo()` · `isTrackLocked(trackId)`
 
-**Project:** `setStage(width, height)` · `setMasterVolume(v)` · `loadProject(project)`
+**Project:** `setStage(width, height)` · `setMasterVolume(v)` · `loadProject(project, options?)`
+(`options: { transport?: 'rewind' | 'keep', history?: 'reset' | 'keep' }`; feed it the result of
+`readProjectDocument`, and listen for the `project:loaded` event)
 
-**Tracks:** `addTrack(kind, options?)` · `removeTrack(id)` · `updateTrack(id, updates)` ·
+**Tracks:** `addTrack(kind, options?)` (any number of tracks of any kind, **including several video
+tracks**, which composite in track order with the topmost lane on top; options include `name`, `height`,
+`protected` (user cannot remove it) and `pinned: 'bottom'` (kept below every non-pinned track)) · `removeTrack(id)` · `updateTrack(id, updates)` ·
 `reorderTracks(orderedIds)`
 
 **Clips:** `addClip(options)` · `removeClip(clipId, trackId)` ·
 `updateClip(clipId, trackId, updates)` · `moveClip(clipId, fromTrackId, toTrackId, startFrame)` ·
 `trimClip(clipId, trackId, startFrame, durationFrames)` ·
-`splitClip(clipId, trackId, atFrame)` → `[leftId, rightId] | null` · `cloneClip(clipId, trackId)`
+`splitClip(clipId, trackId, atFrame)` → `[leftId, rightId] | null` · `cloneClip(clipId, trackId)` ·
+`setClipSpeed(clipId, trackId, speed)` (video only, 0.25–4; length follows the speed)
+
+Clips also carry `speed`, `crop` (`{ x, y, width, height }`, 0..1 of the source) and `cornerRadius`
+(0..0.5 of the shorter side) for video and image clips.
 
 **Gestures:** `previewClip(clipId, trackId, updates)` · `commitInteraction(description?)` ·
 `cancelInteraction()`
@@ -348,10 +362,57 @@ interface Transform {
   scale: number          // 1 = native size
   rotation: number       // radians, positive = clockwise
   anchor: { x: number; y: number }   // 0..1 within the clip's own box
+  scaleX?: number        // extra horizontal stretch on top of `scale` (omitted = 1)
+  scaleY?: number        // extra vertical stretch on top of `scale` (omitted = 1)
 }
 ```
 
-Normalized so a project is resolution-independent.
+Normalized so a project is resolution-independent. Setting `rotation` tilts a video, image or
+text clip, but only **text** clips get an interactive rotate knob in `<Preview>`. Video and image
+clips have 8 resize handles (non-uniform; Shift keeps the aspect ratio) and a Resize/Crop toggle,
+but **no rotate handle**: set `transform.rotation` through `engine.updateClip`. Shape renderers
+do not apply rotation at all.
+
+### Transitions
+
+```ts
+engine.addTransition({
+  fromClipId, toClipId, trackId,        // two adjacent clips on the SAME track
+  kind: 'slide',                        // 'fade' | 'slide' | 'wipe'
+  durationFrames: 12,
+  direction: 'left',                    // optional
+  easing: 'ease-out',                   // 'linear' | 'ease-in' | 'ease-out'
+})
+```
+
+All three kinds work in preview and in export. `slide` moves left when `direction` is `'left'`
+and right for any other value; `wipe` ignores `direction`. `'up'` and `'down'` are accepted by the
+type but are **not implemented**: do not promise a vertical slide.
+
+### Text templates, animation and frame sequences
+
+```ts
+import { BUILT_IN_TEXT_TEMPLATES, findTextTemplate, applyTextTemplate } from '@elah/editor'
+
+const template = findTextTemplate(BUILT_IN_TEXT_TEMPLATES[0].id)!
+engine.updateClip(clip.id, clip.trackId, applyTextTemplate(template, clip)) // undoable patch
+
+// Plain entry/exit: one kind per end. Text and shape clips both take this shape.
+engine.updateClip(clip.id, clip.trackId, {
+  textAnimation: { in: 'fade', out: 'slide-down', durationFrames: 12 }, // shapes: `shapeAnimation`
+})
+```
+
+14 built-in templates. Entry/exit can also be a layered `MotionSpec` (`inMotion` / `outMotion`:
+`opacity`, `offsetX`, `offsetY`, `scale`, `rotation`, `ease`, `opacityEase`), which replaces the
+plain `in` / `out` kind. Limits to respect: `applyTextTemplate` **ignores a template's `stagger`
+and `tracking`** (nothing in the packages runs them), and `spin` / a `rotation` channel are
+**text-only** because shape renderers do not apply rotation.
+
+Frame sequences are ordered image sets (360 degree orbits, storyboards):
+`createFrameSequence({ frames: urls, fps: 12, loop: 'wrap' })`, drive one with
+`FrameSequenceController`, or lay one out as image clips with
+`engine.loadProject(frameSequenceToProject(seq, { holdFrames: 6 }))`.
 
 ### Export
 
@@ -366,7 +427,8 @@ interface ExportOptions {
   audioCodec?: 'aac' | 'opus'           // default 'aac'
   videoBitrate?: number                 // bits/s, default 8_000_000
   audioBitrate?: number                 // bits/s, default 128_000
-  outputHeight?: number                 // e.g. 720; width derives from stage aspect
+  outputHeight?: number                 // target SHORT edge, e.g. 720 (portrait or landscape); the
+                                        // other edge derives from the stage aspect, rounded to even
   onProgress?: (p: { frame: number; totalFrames: number }) => void
   signal?: AbortSignal                  // cancel
   audioResolver?: AudioResolver         // custom URL→bytes
@@ -394,8 +456,15 @@ Clip fields are **flat**: `scene.texts[0].content`, `.fontSize`, `.color` — no
 `snapFrame(frame, points, threshold)` · `buildSnapPoints(clipsByTrack, excludeId?)` ·
 `clipsOverlap(a, b)` · `DEFAULT_OVERLAP_TOLERANCE` ·
 `serializeProject(engine)` → string / `deserializeProject(engine, json)` → void ·
+`readProjectDocument(doc)` → `Project` (throws `ProjectDocumentError`) · `relinkProjectMedia(project, assets)` →
+`{ project, relinked, missing }` · `missingMediaSummary(missing)` · `isRecoverableMediaSrc(src)` · `PROJECT_VERSION` ·
 `insertMediaAsset(engine, assetId, opts?)` · `insertElement(engine, payload, opts?)` ·
-`importFiles(files)` / `importUrl(url)` / `importBlob(blob)`
+`growClipToAssetDuration(engine, clipId, expectedFallbackFrames, newDurationSec)` ·
+`importFiles(files)` / `importUrl(url)` / `importBlob(blob)` / `beginImportUrl(url, opts?)` (returns a
+`status: 'pending'` asset at once) · `determineAssetHasAudio(assetId)` · `probeHasAudio(src)` ·
+`BUILT_IN_TEXT_TEMPLATES` · `findTextTemplate(id)` · `applyTextTemplate(template, clip)` → `Partial<Clip>` ·
+`sampleTextAnimation(...)` · `TEXT_ANIMATION_KINDS` · `TEXT_ANIMATION_EASINGS` ·
+`createFrameSequence` · `FrameSequenceController` · `frameSequenceToProject` · `PerfSummary`
 
 ---
 
@@ -564,6 +633,11 @@ export function ImportButton() {
 `{ ok: false, kind, reason }` where reason is `'missing-asset' | 'no-track' | 'locked' |
 'incompatible-track' | 'cancelled'`. `importUrl(url)` and `importBlob(blob)` work the same way.
 
+For a remote URL you want on the timeline *now*, use `beginImportUrl(url)`: it returns a
+`status: 'pending'` asset immediately. Insert the clip with `insertMediaAsset`, then call
+`growClipToAssetDuration(engine, clipId, fallbackFrames, asset.durationSec)` once the asset flips to
+`'ready'`; it grows only into free space and leaves a clip the user already trimmed alone.
+
 ### 7.6 Add a text clip
 
 ```tsx
@@ -719,8 +793,36 @@ if (saved) {
 ```
 
 Serialization stores clip references, not media bytes. Re-import or re-host the media so the
-`src` URLs still resolve. `deserializeProject` throws on invalid JSON or a schema-version
-mismatch — always wrap it in a `try`.
+`src` URLs still resolve. `deserializeProject` throws `Not valid project JSON: …` on bad JSON and a
+`ProjectDocumentError` (`code: 'unreadable' | 'unsupported-version'`) on a document it cannot read
+or one written by a newer build; the engine is left untouched. A document with no `version` stamp is read
+as version 1. Always wrap it in a `try`.
+
+`serializeProject` / `deserializeProject` are a thin facade over `readProjectDocument`. Use the reader
+directly when you want to show a refusal before clearing the editor, and to repair media afterwards:
+
+```ts
+import { readProjectDocument, relinkProjectMedia, missingMediaSummary } from '@elah/editor'
+
+engine.loadProject(readProjectDocument(JSON.parse(saved)))     // throws ProjectDocumentError
+
+// Files the user imported from disk are blob: URLs and do not survive a reload.
+// Once your media library is rebuilt, re-point clips at it and report what is gone:
+const { project, missing } = relinkProjectMedia(engine.getProject(), assets) // assets from useMediaLibrary()
+engine.loadProject(project, { transport: 'keep', history: 'keep' })  // keep playhead + undo
+const note = missingMediaSummary(missing)                       // e.g. "a.mp4, b.mp4 and 3 more"
+```
+
+Missing clips are never dropped; they stay in place with their name and length so the user can
+supply the file again.
+
+To keep the media library itself (thumbnails, durations) across a reload, save
+`snapshotMediaLibrary(mediaLibraryStore.getState())` somewhere you control (IndexedDB, say) and put it
+back with `hydrateMediaLibrary(entries, { referencedSrcs })`. Storage is yours; the bytes of files
+imported from disk are not part of the snapshot.
+
+The playback preferences (`zoom`, `volume`, `muted`, `playbackRate`, `loop`, `snapEnabled`) are not part
+of the project: they persist separately in `localStorage`.
 
 ### 7.11 Re-theme with design tokens
 
@@ -787,6 +889,12 @@ Each of these has been observed in real generated code.
 | `updateClip` on every slider tick | `previewClip` during the gesture, one `commitInteraction()` at the end |
 | Server-rendering the editor | Browser-only. `dynamic(..., { ssr: false })` in Next.js |
 | Time in seconds | Integer frames. Convert with `secondsToFrames(s, fps)` |
+| Assuming `<EditorProvider>` defaults to landscape | Default stage is portrait 1080x1920. Pass `stage={{ width: 1920, height: 1080 }}` |
+| Telling users they can rotate a video or image clip by dragging | There is no rotate handle for video/image (text has a knob). Set `transform.rotation` via `engine.updateClip` |
+| Rotating or `spin`-animating a shape clip | Shape renderers ignore rotation; `spin` is text-only |
+| `addTransition({ kind: 'slide', direction: 'up' })`, or expecting `wipe` to honour `direction` | Kinds are `fade`, `slide`, `wipe`; `slide` is left/right only, `wipe` ignores direction |
+| Expecting `applyTextTemplate` to stagger lines or add letter-spacing | It ignores `stagger` and `tracking`; build that yourself |
+| Two overlapping video clips in an `elah build` spec | The spec puts every video clip on one track, so overlap is a build error. Sequence them, or build the project with the engine and use `elah export` |
 | A custom demuxer with `{ probe, demux, destroy }` | `DemuxerBackend` is `{ open(src), getConfig(), packets(range), seekToKeyframe(t), dispose() }` |
 
 ---
@@ -819,6 +927,48 @@ so a large export is bounded by their machine, not by a server.
 
 ---
 
+## 10. Headless rendering with `@elah/cli`
+
+For server-side or no-UI rendering (an AI backend that emits a video), `@elah/cli` runs the same
+engine and export pipeline in headless Chrome. Version **0.1.2** depends on `@elah/core@^0.6.0`.
+Node >= 18.17 and a system Chrome (or `--browser <path>` / `ELAH_BROWSER`) are required for
+export.
+
+```bash
+npx @elah/cli build --spec spec.json --export final.mp4                    # spec -> project -> MP4
+npx @elah/cli export --project project.json --out final.mp4 --height 1080  # --height = SHORT edge
+npx @elah/cli serve --port 8080 --concurrency 2 --media-root ./assets      # HTTP render server
+curl -X POST --data-binary @spec.json http://127.0.0.1:8080/render -o out.mp4
+```
+
+`elah serve` exposes `GET /healthz` and `POST /render` (body = a build spec; `422` on a bad spec,
+`503` + `Retry-After` when at `--concurrency`). `split` and `trim` commands also exist.
+
+The **build spec** is seconds-based JSON; times are converted to frames at `fps` (default 30), and
+`stage` defaults to 1920x1080:
+
+```json
+{
+  "fps": 30,
+  "assets": { "footage": "./clip.mp4", "music": "./song.mp3" },
+  "clips": [
+    { "track": "video", "asset": "footage", "start": 0, "duration": 8 },
+    { "track": "text", "text": "Hello", "start": 0.5, "duration": 4, "fontSize": 96, "x": 0.5, "y": 0.15 },
+    { "track": "audio", "asset": "music", "start": 0, "duration": 8, "volume": 0.5 }
+  ]
+}
+```
+
+Rules a generator must follow: every **video clip lands on one video track, so overlapping video
+clips are a spec error** (the engine allows several video tracks; the spec cannot name one).
+Overlapping text, image and audio clips are placed on extra tracks automatically, and a clip bumped
+to a later track renders *beneath* the one it overlaps. Unknown fields are rejected by name, text
+clips need an explicit `duration`, and the spec has no speed, crop, template or transition fields.
+Errors are path-addressed (`clips[2].duration must be ...`) so a model can correct itself. Node API:
+`build({ spec, baseDir })`, `exportProject({ project, outPath })`, `createRenderSession()`.
+
+---
+
 ## Appendix: complete package layout
 
 | Package | Purpose | Import it directly? |
@@ -827,7 +977,7 @@ so a large export is bounded by their machine, not by a server.
 | `@elah/core` | Engine, resolver, renderer, export. Zero React. | Only for custom renderers or non-React hosts |
 | `@elah/react` | React bindings (context + store hooks) | Rarely — `@elah/editor` re-exports these |
 | `@elah/timeline` | The `<Timeline>` UI | Rarely — same |
-| `@elah/cli` | Headless server-side rendering (`elah build / export / serve`) | Separate Node tool |
+| `@elah/cli` | Headless server-side rendering (`elah build / export / serve`), see [section 10](#10-headless-rendering-with-elahcli) | Separate Node tool, versioned independently (0.1.2) |
 
-Bundle cost: ~63 KiB gzipped for the full SDK graph. `mediabunny` (the demuxer) is injected at
+Bundle cost: ~64 KiB gzipped at startup for the full SDK graph, plus ~159 KiB for `mediabunny` (the demuxer), which loads lazily on first decode unless the app calls `createDefaultDemuxerFactory()`, whose static import puts it in the startup graph. mediabunny is injected at
 runtime, never bundled.

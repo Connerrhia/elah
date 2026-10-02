@@ -5,8 +5,10 @@ React bindings for the [Elah](https://www.elah.dev) video engine.
 `@elah/core` is framework-agnostic — it has zero React imports and runs in Node, workers, and non-React apps (Vue, Svelte, plain JS). This package is the React layer on top of it:
 
 - **Editor context** — `EditorContext`, `useEditor`, `useTimelineEngine`, `usePlaybackEngine`
-- **Store hooks** — `useTracksStore`, `usePlaybackStore`, `useSelectionStore`, `useTransitionsStore`, `useMediaLibraryStore`, `useMediaLibrary` — React views over core's vanilla Zustand stores
+- **Store hooks** — `useTracksStore`, `usePlaybackStore`, `useSelectionStore`, `useTransitionsStore`, `useTextStylePresetsStore`, `useClipLoadStore`, `useMediaLibraryStore`, `useMediaLibrary` (alias `useAssets`) — React views over core's vanilla Zustand stores
 - **Audio hooks** — `useAudioMixer`, `useMasterVolume`, `useTrackLevels`
+
+`useTextStylePresetsStore` reads the reusable text looks; `useClipLoadStore(s => s.byClipId[clipId])` reports `'loading'` or `'error'` for a clip the preview cannot draw yet.
 
 Each store hook also carries the vanilla store API, so `useTracksStore(s => s.tracks)` and `useTracksStore.getState()` both work.
 
@@ -19,6 +21,8 @@ Each store hook also carries the vanilla store API, so `useTracksStore(s => s.tr
 ```bash
 npm install @elah/react @elah/core react
 ```
+
+Peer dependency: `react` >= 18.
 
 Most apps should install [`@elah/editor`](https://www.npmjs.com/package/@elah/editor) instead — the batteries-included SDK that re-exports everything here alongside the timeline UI and `<EditorProvider>`.
 

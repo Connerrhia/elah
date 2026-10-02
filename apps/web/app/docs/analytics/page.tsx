@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Analytics & Tracking',
@@ -23,24 +24,22 @@ export default function AnalyticsDocsPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 max-w-3xl flex-1">
-        <div className="mb-8 border-b border-outline-variant pb-6">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Privacy</div>
-          <h1
-            className="text-3xl font-semibold tracking-tight text-on-surface"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-          >
-            Analytics &amp; Tracking
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            The elah.dev website uses two analytics tools. Both are opt-in: nothing loads or sends data until
+        <PageHeader
+          variant="doc"
+          eyebrow="Privacy"
+          title="Analytics &amp; Tracking"
+          lede={
+            <>
+              The elah.dev website uses two analytics tools. Both are opt-in: nothing loads or sends data until
             you accept the consent banner, and neither runs if your browser sends a Do-Not-Track signal. The
             elah libraries themselves (<code className={mono}>@elah/core</code> and the rest) contain no
             telemetry — this applies only to the marketing site.
-          </p>
-        </div>
+            </>
+          }
+        />
 
         <section className="mb-10">
-          <h2 id="what-we-track" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="what-we-track" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface">
             What we track
           </h2>
           <ul className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
@@ -65,7 +64,7 @@ export default function AnalyticsDocsPage() {
         </section>
 
         <section className="mb-10">
-          <h2 id="env" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="env" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface">
             Environment variables
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -92,7 +91,7 @@ export default function AnalyticsDocsPage() {
         </section>
 
         <section className="mb-10">
-          <h2 id="consent" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="consent" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface">
             Consent &amp; Do-Not-Track
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -108,7 +107,7 @@ export default function AnalyticsDocsPage() {
         </section>
 
         <section className="mb-10">
-          <h2 id="opt-out" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="opt-out" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface">
             Changing your choice
           </h2>
           <p className="text-sm leading-relaxed text-on-surface-variant">
@@ -121,7 +120,7 @@ export default function AnalyticsDocsPage() {
         </section>
 
         <section className="mb-10">
-          <h2 id="pwa" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="pwa" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface">
             Install &amp; offline
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -139,7 +138,7 @@ export default function AnalyticsDocsPage() {
         </section>
 
         <section className="mb-10">
-          <h2 id="self-hosting" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="self-hosting" className="mb-4 scroll-mt-28 md:scroll-mt-20 text-xl font-semibold tracking-tight text-on-surface">
             Self-hosting
           </h2>
           <p className="text-sm leading-relaxed text-on-surface-variant">

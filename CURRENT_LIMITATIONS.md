@@ -9,11 +9,13 @@
 
 ## Playback & decode
 
-- **Single *video* track (v1).** The decode pipeline and renderer composite
-  multiple clips by `zIndex`, but the system is tuned and tested for one active
-  video track. Heavy multi-track *video* compositing is not yet a supported
-  path. **Audio is multi-track** as of 0.3.0 — `AudioPlaybackController` mixes
-  several audio tracks with per-clip and master volume.
+- **Multiple video tracks are allowed, but not yet tuned for.** Since 0.6.0
+  `addTrack('video')` adds another video track, and video tracks composite in
+  track order (the topmost lane draws on top). The decode pipeline is still
+  best-effort with no scheduler (below), so several video clips decoding at the
+  same time can stall or hold a frame; one active video clip at a time is the
+  tested path. **Audio is multi-track** as of 0.3.0 — `AudioPlaybackController`
+  mixes several audio tracks with per-clip and master volume.
 - **Reverse / backward scrubbing is unstable.** `StreamingFrameProducer` feeds a
   *forward* lookahead window. A backward jump larger than the lookahead is a
   discontinuity: it seeks the demuxer to the nearest keyframe and cold-starts the
@@ -35,24 +37,37 @@
 
 ## Editing UI
 
-- **No rotation handle for video/image.** `MediaTransformOverlay` supports
-  drag-move and uniform corner-scale for video and image clips. `transform.rotation`
-  already flows through both renderers, but the interactive rotation handle on the
-  overlay is not yet built. Text clips have the same gap (overlay box stays
-  axis-aligned for rotated text).
-- **No media persistence.** The media library is in-memory only; object URLs are
-  created at import and are **not** persisted. Reloading the editor clears the
-  library.
+- **No rotation handle for video/image.** `MediaTransformOverlay` has 8 resize
+  handles (non-uniform scale, **Shift** keeps aspect), a Resize/Crop toggle and
+  drag-move. `transform.rotation` flows through both renderers and tilts the
+  selection box, but the only way to set it on a video or image clip is through the
+  engine. **Text** clips do have a rotate knob.
+- **Media persistence is a seam, not a feature.** `snapshotMediaLibrary` /
+  `hydrateMediaLibrary` and `readProjectDocument` / `relinkProjectMedia` (0.6.0) let a
+  host save and restore the library's metadata and thumbnails and reopen a stored
+  project, but core ships **no storage adapter** (the web playground's IndexedDB one
+  lives in `apps/web`). Files imported from disk are `blob:` URLs that do not survive a
+  reload and their bytes are not stored: `relinkProjectMedia` reports those clips as
+  `missing` and the user must supply the file again.
 
 ## Compositing & effects
 
-- **Transitions: fade only.** `Scene.transitions` is fully typed and populated by
-  the resolver. Fade is wired end-to-end (preview via CSS snapshot overlay;
-  export via `globalAlpha=1-t`). Slide and wipe are not yet implemented — the
-  architecture is in place (CSS `transform` on the snapshot div + matching export
-  pass), just the per-kind logic is missing.
-- **No effects / filters / animation pipeline.** Layers apply `transform` and
-  `opacity` only. There is no per-clip shader-effect stack.
+- **Transitions are `fade`, `slide` and `wipe`, with no direction control to speak
+  of.** All three are wired end-to-end (preview via CSS snapshot overlay; export via a
+  matching canvas pass). `slide` moves left when `direction` is `'left'` and right for
+  any other value; `wipe` ignores `direction` entirely. `TransitionDirection` also types
+  `'up'` and `'down'`, but neither is implemented. There are no other kinds (push, zoom,
+  dissolve variants, custom).
+- **Rotation does nothing on shapes.** The shape renderers do not apply
+  `transform.rotation`, so a rotation channel in a `MotionSpec` and the `spin` entry/exit
+  kind are text-only; on a shape clip they have no visible effect.
+- **Text template `stagger` and `tracking` are inert.** `applyTextTemplate` ignores them
+  and nothing in these packages executes them; they are metadata for a host that builds
+  staggered or letter-spaced text itself.
+- **No effects / filters / keyframe pipeline.** Layers apply `transform` and
+  `opacity` only. Text and shape clips get entry/exit animation (`TextAnimation`,
+  layered `MotionSpec`), but there is no per-clip shader-effect stack and no general
+  keyframe channels.
 
 ## Export
 

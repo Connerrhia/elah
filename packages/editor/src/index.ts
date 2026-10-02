@@ -7,7 +7,8 @@
  * This barrel re-exports the *public* API of those three packages, so an app can
  * import everything it needs from `@elah/editor` alone. Renderer and debug
  * internals (`resolveDrawRect`, `computeTextLayout`, `SIDE_MARGIN`, `trace`,
- * `installTraceGlobal`, …) are deliberately left out — import those from
+ * `installTraceGlobal`, …) are deliberately left out (`PerfSummary` is the one
+ * diagnostic that is re-exported) — import those from
  * `@elah/core` directly if you are building a custom renderer.
  */
 
@@ -19,6 +20,10 @@ export type {
   Transform,
   TextAnimation,
   TextAnimationKind,
+  TextAnimationKindOption,
+  TextAnimationEasing,
+  MotionSpec,
+  TextStylePreset,
   ClipType,
   TrackKind,
   FrameCount,
@@ -29,9 +34,67 @@ export type {
   TransitionKind,
   TransitionEasing,
   TransitionDirection,
+  LoadProjectHistory,
+  LoadProjectTransport,
+  ProjectLoadedEvent,
 } from '@elah/core'
 
 export { TimelineEngine } from '@elah/core'
+
+export {
+  BUILT_IN_TEXT_STYLE_PRESETS,
+  BUILT_IN_TEXT_TEMPLATES,
+  applyTextTemplate,
+  findTextTemplate,
+  // Needed by anything that builds a timeline from a template rather than
+  // applying one to a clip the user selected — see `lib/motion/overlay.ts`.
+  resolveTemplateRamp,
+  LINE_HEIGHT,
+} from '@elah/core'
+export {
+  MAX_TEMPLATE_RAMP_FRAMES,
+  MIN_TEMPLATE_RAMP_FRAMES,
+} from '@elah/core'
+export type {
+  TextTemplate,
+  TextTemplateStyle,
+  TextTemplateAnimation,
+  TextTemplateStagger,
+} from '@elah/core'
+
+// --- Entry/exit animation sampling (pure; for custom previews and pickers) ---
+export {
+  sampleTextAnimation,
+  resolveRampFrames,
+  TEXT_ANIMATION_EASINGS,
+  motionForKind,
+  DEFAULT_SHAPE_TRANSFORM,
+  SLIDE_TRAVEL_NORMALIZED,
+  SPIN_TRAVEL_RADIANS,
+} from '@elah/core'
+export type { TextAnimationSample, SampleTextAnimationArgs } from '@elah/core'
+
+// --- Restore: a stored document back into the engine ---
+export {
+  PROJECT_VERSION,
+  ProjectDocumentError,
+  readProjectDocument,
+  isReadableProjectDocument,
+  isRecoverableMediaSrc,
+  relinkProjectMedia,
+  missingMediaSummary,
+} from '@elah/core'
+export type {
+  ProjectDocumentErrorCode,
+  ReadProjectDocumentOptions,
+  MediaClipType,
+  MissingMedia,
+  RelinkMediaResult,
+} from '@elah/core'
+
+// --- Persistence ---
+export { serializeProject, deserializeProject } from '@elah/core'
+
 export { PlaybackEngine } from '@elah/core'
 export type { PlaybackSnapshot, PlaybackEngineConfig } from '@elah/core'
 
@@ -59,6 +122,9 @@ export { createDefaultDemuxerFactory, createMediabunnyBackend, isMediabunnyCompa
 export type { MediabunnyModule, CreateMediabunnyBackendOpts } from '@elah/core'
 export type { DemuxerBackend, DemuxerFactory, MediabunnyDemuxer } from '@elah/core'
 
+export { sourceBlobCache, createSourceBlobCache, warmVideoSrc } from '@elah/core'
+export type { SourceBlobCache, CreateSourceBlobCacheOpts, BlobFetcher } from '@elah/core'
+
 export type { VideoFrameProvider, VideoFrameProviderDeps } from '@elah/core'
 export { createVideoFrameProvider, MockVideoFrameProvider, SyntheticVideoFrameProvider } from '@elah/core'
 
@@ -71,12 +137,23 @@ export { warmImageSrc, preloadProjectImages } from '@elah/core'
 export type { ImageLoader, LoadedImage } from '@elah/core'
 
 // --- Media library ---
-export { MEDIA_DRAG_MIME, mediaDragKindMime, importFiles, importUrl, importBlob } from '@elah/core'
+export {
+  MEDIA_DRAG_MIME,
+  mediaDragKindMime,
+  importFiles,
+  importUrl,
+  importBlob,
+  beginImportUrl,
+  determineAssetHasAudio,
+  probeHasAudio,
+} from '@elah/core'
 export { useMediaLibrary, useAssets, useMediaLibraryStore } from '@elah/react'
 export type {
   MediaAsset,
   MediaKind,
   DragMediaPayload,
+  MediaAssetAnalysis,
+  MediaAssetTopObject,
   ImportFilesOptions,
   ImportFilesResult,
   ImportUrlOptions,
@@ -87,16 +164,41 @@ export type {
 } from '@elah/core'
 export type { UseMediaLibraryApi } from '@elah/react'
 
+// --- Media library persistence (carrying thumbnails across a page load) ---
+export {
+  scheduleThumbnailById,
+  snapshotMediaLibrary,
+  hydrateMediaLibrary,
+  refreshMissingThumbnails,
+} from '@elah/core'
+export type {
+  MediaLibrarySnapshotEntry,
+  HydrateMediaLibraryOptions,
+  HydrateMediaLibraryResult,
+} from '@elah/core'
+
 // --- Store hooks (React) and the vanilla stores behind them ---
-export { useTracksStore } from '@elah/react'
-export { usePlaybackStore } from '@elah/react'
-export { useSelectionStore } from '@elah/react'
-export { useTransitionsStore } from '@elah/react'
+export {
+  useTracksStore,
+  usePlaybackStore,
+  useSelectionStore,
+  useTransitionsStore,
+  useTextStylePresetsStore,
+  useClipLoadStore,
+} from '@elah/react'
 export type { BoundStoreHook } from '@elah/react'
 
 // The framework-agnostic stores. Reach for these outside React (event handlers,
 // imperative code); inside components prefer the `use*Store` hooks above.
-export { tracksStore, playbackStore, selectionStore, transitionsStore, mediaLibraryStore } from '@elah/core'
+export {
+  tracksStore,
+  playbackStore,
+  selectionStore,
+  transitionsStore,
+  mediaLibraryStore,
+  clipLoadStore,
+  textStylePresetsStore,
+} from '@elah/core'
 export type {
   TracksState,
   TracksActions,
@@ -106,6 +208,11 @@ export type {
   SelectionActions,
   TransitionsState,
   TransitionsActions,
+  ClipLoadState,
+  ClipLoadStoreState,
+  ClipLoadStoreActions,
+  TextStylePresetsState,
+  TextStylePresetsActions,
 } from '@elah/core'
 
 // --- Clip factories ---
@@ -123,19 +230,58 @@ export type {
   FreehandClipMetadata,
 } from '@elah/core'
 
+export {
+  TEXT_ANIMATION_KINDS,
+  DEFAULT_TEXT_TRANSFORM,
+} from '@elah/core'
+
 export { splitClipAtPlayhead } from '@elah/core'
 export type { SplitAtPlayheadData } from '@elah/core'
 export type { ActionResult, ActionFailureReason } from '@elah/core'
 
 export { framesToTimecode, secondsToFrames, framesToSeconds, getTotalFrames } from '@elah/core'
 export { generateId } from '@elah/core'
-export { transformFromCoverRect } from '@elah/core'
+export {
+  transformFromContainRect,
+  transformFromCoverRect,
+  normalizeCrop,
+  FULL_CROP,
+} from '@elah/core'
+export type { CropRect } from '@elah/core'
 
 // --- Snapping / overlap helpers (for custom drag and trim interactions) ---
 export { snapFrame, buildSnapPoints, resolveOverlapEdgeSnap, clipsOverlap, DEFAULT_OVERLAP_TOLERANCE } from '@elah/core'
 
-// --- Persistence ---
-export { serializeProject, deserializeProject } from '@elah/core'
+
+// --- Frame sequences (ordered image sets: 360° orbits, generated sets, storyboards) ---
+export {
+  createFrameSequence,
+  frameAt,
+  frameCount,
+  normalizeFrameIndex,
+  FrameSequenceController,
+  createFramePreloader,
+  pickFrameSource,
+  supportsImageType,
+  frameSequenceToProject,
+} from '@elah/core'
+export type {
+  Frame,
+  FrameSource,
+  FrameSequence,
+  FrameLoopMode,
+  CreateFrameSequenceOptions,
+  FrameSequenceSnapshot,
+  FrameSequenceControllerOptions,
+  FramePreloader,
+  FramePreloaderOptions,
+  FramePreloaderStatus,
+  FrameSourceSizeHint,
+  FrameSequenceToProjectOptions,
+} from '@elah/core'
+
+// --- Diagnostics ---
+export { PerfSummary } from '@elah/core'
 
 export { exportVideo } from '@elah/core'
 export { lazyExportVideo } from '@elah/core'
@@ -152,7 +298,7 @@ export { usePlayback } from '@elah/timeline'
 export { useSelection } from '@elah/timeline'
 export { useTimelineDrop } from '@elah/timeline'
 export type { TimelineDropState } from '@elah/timeline'
-export { insertMediaAsset, insertElement } from '@elah/timeline'
+export { insertMediaAsset, insertElement, growClipToAssetDuration } from '@elah/timeline'
 export { ELEMENT_DRAG_MIME } from '@elah/timeline'
 export type {
   DragElementPayload,

@@ -1,6 +1,12 @@
 import type { Metadata } from 'next'
 import { DocsToc } from '@/components/docs/DocsToc'
 import { MermaidDiagram } from '@/components/docs/MermaidDiagram'
+import { PageHeader } from '@/components/site/PageHeader'
+
+/** `color` at `pct`% opacity; works with CSS-variable colours, unlike hex+alpha. */
+const tint = (color: string, pct: number) => `color-mix(in oklab, ${color} ${pct}%, transparent)`
+/** Two palette tokens blended, so six layers stay inside the cool accent family. */
+const mix = (a: string, b: string) => `color-mix(in oklab, ${a} 55%, ${b})`
 
 export const metadata: Metadata = {
   title: 'Architecture',
@@ -90,19 +96,20 @@ export default function ArchitecturePage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Architecture</div>
-          <h1 className="text-3xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-            Architecture Overview
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            Four diagrams covering the state model, timeline mutations, the playback clock, and the GPU rendering pipeline.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          eyebrow="Architecture"
+          title="Architecture Overview"
+          lede={
+            <>
+              Four diagrams covering the state model, timeline mutations, the playback clock, and the GPU rendering pipeline.
+            </>
+          }
+        />
 
         {/* ── Ring States ── */}
         <section className="mb-12">
-          <h2 id="ring-states" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="ring-states" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Three-Ring State Model
           </h2>
           <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
@@ -118,7 +125,7 @@ export default function ArchitecturePage() {
 
         {/* ── Timeline Engine ── */}
         <section className="mb-12">
-          <h2 id="timeline-engine" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="timeline-engine" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Timeline Engine
           </h2>
           <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
@@ -134,7 +141,7 @@ export default function ArchitecturePage() {
 
         {/* ── Playback Clock ── */}
         <section className="mb-12">
-          <h2 id="playback-clock" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="playback-clock" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Playback Engine & Clock
           </h2>
           <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
@@ -150,7 +157,7 @@ export default function ArchitecturePage() {
 
         {/* ── Rendering Engine ── */}
         <section className="mb-12">
-          <h2 id="rendering-engine" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="rendering-engine" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Rendering Engine
           </h2>
           <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
@@ -166,7 +173,7 @@ export default function ArchitecturePage() {
 
         {/* ── Layer Reference ── */}
         <section className="mb-12">
-          <h2 id="overview" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="overview" className="mb-1 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Layer Reference
           </h2>
           <p className="mb-5 text-sm leading-relaxed text-on-surface-variant">
@@ -177,7 +184,7 @@ export default function ArchitecturePage() {
             {[
               {
                 label: 'React UI',
-                color: '#b7102a',
+                color: 'var(--color-primary)',
                 items: [
                   { name: 'Timeline', note: '@elah/timeline' },
                   { name: 'Preview', note: '' },
@@ -188,7 +195,7 @@ export default function ArchitecturePage() {
               },
               {
                 label: 'Zustand Stores',
-                color: '#485f84',
+                color: 'var(--color-secondary)',
                 items: [
                   { name: 'useTracksStore', note: 'tracks, clips, stage' },
                   { name: 'usePlaybackStore', note: 'currentFrame, isPlaying' },
@@ -199,7 +206,7 @@ export default function ArchitecturePage() {
               },
               {
                 label: 'Engine Layer',
-                color: '#006860',
+                color: 'var(--color-tertiary)',
                 items: [
                   { name: 'TimelineEngine', note: 'Immer + history + events' },
                   { name: 'PlaybackEngine', note: 'anchor-integrate clock' },
@@ -209,7 +216,7 @@ export default function ArchitecturePage() {
               },
               {
                 label: 'Pure Resolver',
-                color: '#6b21a8',
+                color: mix('var(--color-primary)', 'var(--color-secondary)'),
                 items: [
                   { name: 'resolveTimeline(frame, project)', note: '→ Scene' },
                 ],
@@ -217,7 +224,7 @@ export default function ArchitecturePage() {
               },
               {
                 label: 'Renderer',
-                color: '#b45309',
+                color: mix('var(--color-tertiary)', 'var(--color-primary)'),
                 items: [
                   { name: 'GpuRenderer', note: 'WebGL2 — live preview' },
                   { name: 'RenderGraph', note: 'layer sort + blend' },
@@ -227,7 +234,7 @@ export default function ArchitecturePage() {
               },
               {
                 label: 'Media Pipeline',
-                color: '#0f766e',
+                color: mix('var(--color-secondary)', 'var(--color-tertiary)'),
                 items: [
                   { name: 'StreamingFrameProducer', note: 'per-clip orchestrator' },
                   { name: 'VideoDecoderManager', note: 'WebCodecs VideoDecoder' },
@@ -242,7 +249,7 @@ export default function ArchitecturePage() {
                 <div className="flex gap-0 sm:gap-4">
                   <div
                     className="flex w-8 shrink-0 items-stretch sm:w-28"
-                    style={{ borderRight: `2px solid ${layer.color}22` }}
+                    style={{ borderRight: `2px solid ${tint(layer.color, 13)}` }}
                   >
                     <div
                       className="flex w-1 shrink-0 sm:w-1.5"
@@ -264,7 +271,7 @@ export default function ArchitecturePage() {
                         <div
                           key={item.name}
                           className="flex items-baseline gap-1 rounded border px-2 py-0.5"
-                          style={{ borderColor: layer.color + '30', backgroundColor: layer.color + '08' }}
+                          style={{ borderColor: tint(layer.color, 19), backgroundColor: tint(layer.color, 3) }}
                         >
                           <span className="font-mono text-xs text-on-surface">{item.name}</span>
                           {item.note && (

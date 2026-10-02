@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { trackPlaygroundLaunch } from '@/lib/analytics'
-import { Icon } from './Icon'
+import { ArrowUpRight } from 'lucide-react'
 import { CardHeader, type CardHeaderKind } from './CardHeader'
 import { playgrounds, type PlaygroundEntry } from './landingData'
+import { Spotlight } from './motion/Spotlight'
 
 const headerKindByVariant: Record<PlaygroundEntry['variant'], CardHeaderKind> = {
   full: 'editor',
@@ -35,8 +36,9 @@ export function LandingPlaygrounds() {
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 18 }}>
           {playgrounds.map((p) => (
-            <div
+            <Spotlight
               key={p.title}
+              lift={4}
               className="lv-pgcard"
               style={{
                 border: '1px solid var(--line)',
@@ -95,10 +97,10 @@ export function LandingPlaygrounds() {
                   }}
                 >
                   Launch Playground
-                  <Icon name="north_east" size={15} />
+                  <ArrowUpRight size={15}  />
                 </Link>
               </div>
-            </div>
+            </Spotlight>
           ))}
         </div>
       </div>

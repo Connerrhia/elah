@@ -1,6 +1,11 @@
-import type { CSSProperties } from 'react'
-import { Icon } from './Icon'
+'use client'
+
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
+import { useEffect, useRef, type CSSProperties } from 'react'
+import { ChevronDown, Code2, Copy, EllipsisVertical, Film, ImageIcon, Maximize, Minus, Music, Plus, Play, Redo2, RectangleHorizontal, Scissors, Search, SlidersHorizontal, Sparkles, Square, Trash2, Type, Undo2, type LucideIcon } from 'lucide-react'
 import { tracks, type TrackClip } from './landingData'
+import { Tilt } from './motion/Tilt'
+import { useInView } from './motion/useInView'
 
 // A static, decorative reproduction of /playground/production, pinned dark in
 // both themes (it depicts a dark tool surface). Colours are intentionally
@@ -8,12 +13,15 @@ import { tracks, type TrackClip } from './landingData'
 
 const MONO = "var(--font-geist-mono), 'Geist Mono', monospace"
 
-const railItems = [
-  { icon: 'movie', label: 'Videos', active: true, color: undefined as string | undefined },
-  { icon: 'image', label: 'Photos', active: false, color: '#9ca3af' },
-  { icon: 'auto_awesome', label: 'Agentic AI', active: false, color: '#ff6b6b' },
-  { icon: 'music_note', label: 'Audio', active: false, color: '#9ca3af' },
-  { icon: 'title', label: 'Elements', active: false, color: '#9ca3af' },
+const railItems: { icon: LucideIcon; label: string; active: boolean; color: string | undefined }[] = [
+  { icon: Film, label: 'Videos', active: true, color: undefined as string | undefined },
+  { icon: ImageIcon, label: 'Photos', active: false, color: '#9ca3af' },
+  // The one highlighted item in the rail. It was literally #ff6b6b, which is
+  // the editor's --elah-danger-text — a destructive-action red standing in for
+  // "look here", so the mockup's only coloured icon read as an error.
+  { icon: Sparkles, label: 'Agentic AI', active: false, color: 'var(--accent)' },
+  { icon: Music, label: 'Audio', active: false, color: '#9ca3af' },
+  { icon: Type, label: 'Elements', active: false, color: '#9ca3af' },
 ]
 
 const thumbnails = [
@@ -86,6 +94,62 @@ function Clip({ c, mobile }: { c: TrackClip; mobile?: boolean }) {
   )
 }
 
+const FPS = 30
+const TOTAL_SECONDS = 12
+
+/**
+ * Timecode that follows the CSS playhead sweep. It reads the playhead's own
+ * running animation (Web Animations API) so it can never drift from lv-phSweep,
+ * and it writes straight to the text node: no React state, no re-render.
+ * The loop only runs while the mockup is on screen; with reduced motion there
+ * is no animation to read, so the static timecode stays.
+ */
+function LiveTimecode({ initial, mobile }: { initial: string; mobile?: boolean }) {
+  const textRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const text = textRef.current
+    const root = text?.closest<HTMLElement>('[data-lv-desktop], [data-lv-mobile]')
+    const head = root?.querySelector<HTMLElement>('[data-lv-playhead]')
+    if (!text || !root || !head || typeof IntersectionObserver === 'undefined') return
+    const [from, span] = mobile ? [0.05, 0.87] : [0.03, 0.9]
+    const pad = (n: number) => String(n).padStart(2, '0')
+    let raf = 0
+
+    const tick = () => {
+      const anim = head.getAnimations()[0]
+      if (!anim) return // reduced motion: keep the static timecode
+      const ct = Number(anim.currentTime ?? 0)
+      const within = ct % 32000
+      const f = within < 16000 ? within / 16000 : 2 - within / 16000
+      const seconds = (from + span * f) * TOTAL_SECONDS
+      const whole = Math.floor(seconds)
+      const frames = Math.floor((seconds - whole) * FPS)
+      text.textContent = mobile ? `00:${pad(whole)}:${pad(frames)}` : `00:00:${pad(whole)}:${pad(frames)}`
+      raf = requestAnimationFrame(tick)
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        cancelAnimationFrame(raf)
+        if (entries[entries.length - 1].isIntersecting) raf = requestAnimationFrame(tick)
+      },
+      { rootMargin: '120px' },
+    )
+    io.observe(root)
+    return () => {
+      io.disconnect()
+      cancelAnimationFrame(raf)
+    }
+  }, [mobile])
+
+  return (
+    <span ref={textRef} style={{ color: '#00c2ff' }}>
+      {initial}
+    </span>
+  )
+}
+
 function DesktopMockup() {
   return (
     <div
@@ -133,9 +197,9 @@ function DesktopMockup() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          {['undo', 'redo'].map((n) => (
+          {[Undo2, Redo2].map((Glyph, i) => (
             <span
-              key={n}
+              key={i}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -148,7 +212,7 @@ function DesktopMockup() {
                 color: '#9ca3af',
               }}
             >
-              <Icon name={n} size={15} />
+              <Glyph size={15} />
             </span>
           ))}
         </div>
@@ -166,7 +230,7 @@ function DesktopMockup() {
               fontSize: 11,
             }}
           >
-            <Icon name="code" size={14} />
+            <Code2 size={14}  />
             Code
           </span>
           <span
@@ -235,7 +299,7 @@ function DesktopMockup() {
                   color: r.active ? '#fff' : undefined,
                 }}
               >
-                <Icon name={r.icon} size={17} />
+                <r.icon size={17} />
               </span>
               <span style={{ fontSize: 9, fontWeight: r.active ? 600 : undefined }}>{r.label}</span>
             </span>
@@ -276,7 +340,7 @@ function DesktopMockup() {
                 padding: '3px 8px',
               }}
             >
-              <Icon name="add" size={12} weight={500} />
+              <Plus size={12}  />
               Upload
             </span>
           </div>
@@ -296,12 +360,12 @@ function DesktopMockup() {
                   fontSize: 11,
                 }}
               >
-                <Icon name="search" size={13} />
+                <Search size={13}  />
                 Search videos…
               </span>
               <span style={{ fontSize: 11, color: '#9ca3af', display: 'flex', alignItems: 'center' }}>
                 Pixabay
-                <Icon name="expand_more" size={14} />
+                <ChevronDown size={14}  />
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
@@ -410,7 +474,7 @@ function DesktopMockup() {
             }}
           >
             <span style={{ fontFamily: MONO, fontSize: 10.5 }}>
-              <span style={{ color: '#00c2ff' }}>00:00:02:15</span>
+              <LiveTimecode initial="00:00:02:15" />
               <span style={{ color: '#9ca3af' }}> | 00:00:12:00</span>
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -426,17 +490,17 @@ function DesktopMockup() {
                   color: '#000',
                 }}
               >
-                <Icon name="play_arrow" size={17} fill={1} />
+                <Play size={17} fill="currentColor" />
               </span>
-              <Icon name="stop" size={13} fill={1} color="#9ca3af" />
+              <Square size={13} color="#9ca3af" fill="#9ca3af" />
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', color: '#9ca3af' }}>
-              <Icon name="fullscreen" size={14} />
+              <Maximize size={14}  />
               <span style={{ display: 'flex', alignItems: 'center', gap: 2, border: '1px solid #232938', borderRadius: 5, padding: '2px 7px', fontSize: 10.5 }}>
                 Fit
-                <Icon name="expand_more" size={12} />
+                <ChevronDown size={12}  />
               </span>
-              <Icon name="crop_landscape" size={14} />
+              <RectangleHorizontal size={14}  />
             </span>
           </div>
         </div>
@@ -505,7 +569,7 @@ function DesktopMockup() {
               }}
             >
               Blend · Normal
-              <Icon name="expand_more" size={12} />
+              <ChevronDown size={12}  />
             </span>
           </div>
         </div>
@@ -526,26 +590,26 @@ function DesktopMockup() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="add" size={14} />
+            <Plus size={14}  />
             Add Track
-            <Icon name="expand_more" size={12} />
+            <ChevronDown size={12}  />
           </span>
           <span style={{ width: 1, height: 15, background: '#232938' }} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="content_cut" size={13} />
+            <Scissors size={13}  />
             Split
           </span>
-          <Icon name="content_copy" size={13} />
-          <Icon name="delete" size={13} />
+          <Copy size={13}  />
+          <Trash2 size={13}  />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11 }}>
-          <Icon name="remove" size={14} />
+          <Minus size={14}  />
           <span style={{ position: 'relative', width: 80, height: 2, background: '#232938', borderRadius: 2, display: 'block' }}>
             <span style={{ position: 'absolute', left: '38%', top: '50%', transform: 'translateY(-50%)', width: 9, height: 9, borderRadius: '50%', background: '#9ca3af' }} />
           </span>
-          <Icon name="add" size={14} />
+          <Plus size={14}  />
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="fullscreen" size={13} />
+            <Maximize size={13}  />
             Fit
           </span>
         </div>
@@ -599,6 +663,7 @@ function DesktopMockup() {
           </div>
         ))}
         <span
+          data-lv-playhead
           style={{
             position: 'absolute',
             top: 0,
@@ -674,13 +739,13 @@ function MobileMockup() {
         >
           <span style={{ width: 12, height: 7, borderRadius: 2, background: 'currentColor' }} />
           16:9
-          <Icon name="expand_more" size={12} />
+          <ChevronDown size={12}  />
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ background: '#00c2ff', color: '#04202a', fontSize: 10, fontWeight: 600, borderRadius: 5, padding: '3px 8px' }}>
             ⬇ Export
           </span>
-          <Icon name="more_vert" size={16} color="#9ca3af" />
+          <EllipsisVertical size={16} color="#9ca3af"  />
         </span>
       </div>
 
@@ -690,9 +755,9 @@ function MobileMockup() {
           <span style={{ fontWeight: 700, fontSize: 15, color: '#fff', whiteSpace: 'nowrap' }}>Launch Day</span>
           <CornerHandles size={6} offset={-3.5} />
         </div>
-        {(['tune', 'fullscreen'] as const).map((n, i) => (
+        {[SlidersHorizontal, Maximize].map((Glyph, i) => (
           <span
-            key={n}
+            key={i}
             style={{
               position: 'absolute',
               bottom: 8,
@@ -709,7 +774,7 @@ function MobileMockup() {
               color: '#fff',
             }}
           >
-            <Icon name={n} size={13} />
+            <Glyph size={13} />
           </span>
         ))}
       </div>
@@ -727,18 +792,18 @@ function MobileMockup() {
         }}
       >
         <span style={{ fontFamily: MONO, fontSize: 9.5 }}>
-          <span style={{ color: '#00c2ff' }}>00:02:15</span>
+          <LiveTimecode initial="00:02:15" mobile />
           <span style={{ color: '#9ca3af' }}> | 00:12:00</span>
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 27, height: 27, borderRadius: '50%', background: '#fff', color: '#000' }}>
-            <Icon name="play_arrow" size={15} fill={1} />
+            <Play size={15} fill="currentColor" />
           </span>
-          <Icon name="stop" size={12} fill={1} color="#9ca3af" />
+          <Square size={12} color="#9ca3af" fill="#9ca3af" />
         </span>
         <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, color: '#9ca3af' }}>
-          <Icon name="undo" size={14} />
-          <Icon name="redo" size={14} />
+          <Undo2 size={14}  />
+          <Redo2 size={14}  />
         </span>
       </div>
 
@@ -757,18 +822,18 @@ function MobileMockup() {
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{ display: 'flex', alignItems: 'center' }}>
-            <Icon name="add" size={14} />
-            <Icon name="expand_more" size={11} />
+            <Plus size={14}  />
+            <ChevronDown size={11}  />
           </span>
           <span style={{ width: 1, height: 13, background: '#232938' }} />
-          <Icon name="content_cut" size={13} />
-          <Icon name="content_copy" size={13} />
-          <Icon name="delete" size={13} />
+          <Scissors size={13}  />
+          <Copy size={13}  />
+          <Trash2 size={13}  />
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Icon name="remove" size={14} />
-          <Icon name="add" size={14} />
-          <Icon name="fullscreen" size={13} />
+          <Minus size={14}  />
+          <Plus size={14}  />
+          <Maximize size={13}  />
         </span>
       </div>
 
@@ -819,7 +884,7 @@ function MobileMockup() {
             </div>
           </div>
         ))}
-        <span style={{ position: 'absolute', top: 0, bottom: 0, left: 'calc(42px + (100% - 42px) * 0.24)', width: 1.5, background: '#fff', zIndex: 3, animation: 'lv-phSweepMobile 16s linear infinite alternate' }} />
+        <span data-lv-playhead style={{ position: 'absolute', top: 0, bottom: 0, left: 'calc(42px + (100% - 42px) * 0.24)', width: 1.5, background: '#fff', zIndex: 3, animation: 'lv-phSweepMobile 16s linear infinite alternate' }} />
         <span style={{ position: 'absolute', top: 1, left: 'calc(42px + (100% - 42px) * 0.24)', transform: 'translateX(-50%)', width: 8, height: 8, background: '#fff', borderRadius: 2, zIndex: 3, animation: 'lv-phSweepMobile 16s linear infinite alternate' }} />
       </div>
 
@@ -828,7 +893,7 @@ function MobileMockup() {
         {railItems.map((r) => (
           <span key={r.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: r.color ?? '#9ca3af' }}>
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 10, background: '#171d2b' }}>
-              <Icon name={r.icon} size={15} />
+              <r.icon size={15} />
             </span>
             <span style={{ fontSize: 8.5 }}>{r.label}</span>
           </span>
@@ -839,32 +904,56 @@ function MobileMockup() {
 }
 
 export function EditorMockup() {
+  const reduce = useReducedMotion()
+  const gateRef = useInView<HTMLDivElement>()
+  const stageRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: stageRef, offset: ['start 90%', 'start 40%'] })
+  const scale = useTransform(scrollYProgress, [0, 1], [0.94, 1])
+  const rotateX = useTransform(scrollYProgress, [0, 1], [7, 0])
+  const glowOpacity = useTransform(scrollYProgress, [0, 1], [0.2, 1])
+
   return (
     <div
+      ref={gateRef}
       style={{
         maxWidth: 1200,
         margin: 'clamp(36px, 5vw, 56px) auto 0',
         padding: '0 20px clamp(56px, 8vw, 80px)',
         position: 'relative',
-        animation: 'lv-rise .9s cubic-bezier(.2,.7,.2,1) .3s both',
         overflowX: 'auto',
         scrollbarWidth: 'thin',
       }}
     >
-      <div
+      <motion.div
+        aria-hidden
         style={{
           position: 'absolute',
           left: '15%',
           right: '15%',
           top: 20,
           bottom: 60,
-          background: 'radial-gradient(60% 60% at 50% 40%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 75%)',
-          filter: 'blur(40px)',
           pointerEvents: 'none',
-          animation: 'lv-glowPulse 5s ease-in-out infinite',
+          opacity: reduce ? 1 : glowOpacity,
         }}
-      />
-      <DesktopMockup />
+      >
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            background: 'radial-gradient(60% 60% at 50% 40%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 75%)',
+            filter: 'blur(40px)',
+            animation: 'lv-glowPulse 5s ease-in-out infinite',
+          }}
+        />
+      </motion.div>
+      <motion.div
+        ref={stageRef}
+        style={reduce ? undefined : { scale, rotateX, transformPerspective: 1600, transformOrigin: '50% 100%' }}
+      >
+        <Tilt className="lv-tilt-mockup">
+          <DesktopMockup />
+        </Tilt>
+      </motion.div>
       <MobileMockup />
     </div>
   )

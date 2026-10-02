@@ -11,7 +11,147 @@ versions independently, starting from its own 0.1.0.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-02
+
+The premium editor port (PR #72), verified. Multiple video tracks, clip speed,
+crop and corner radius, layered text animation with 14 templates, frame
+sequences, stored project documents with media re-linking — and the eight
+defects found while verifying it. `@elah/cli` 0.1.2 ships alongside (below).
+
+### Added
+
+- **`@elah/core`: reading a stored project.** `readProjectDocument(document)` turns
+  stored JSON into a `Project` or throws `ProjectDocumentError`
+  (`code: 'unreadable' | 'unsupported-version'`); it never returns half a project.
+  `isReadableProjectDocument` is the boolean form. `PROJECT_VERSION` is the schema
+  version this build writes. `relinkProjectMedia(project, assets)` points restored
+  clips back at the media library by `src`, and reports clips whose `blob:`/`data:`
+  source cannot be fetched again as `missing` (never dropped);
+  `isRecoverableMediaSrc` and `missingMediaSummary` are its helpers.
+  `engine.loadProject(project, { transport?, history? })` gained options, and the
+  engine emits a `project:loaded` event (`ProjectLoadedEvent`) so the transport can
+  rewind. `history: 'keep'` is for the re-link pass, which must not discard undo.
+- **`@elah/core`: layered text and shape animation.** `TextAnimation` gained
+  `inMotion` / `outMotion`, each a `MotionSpec` (opacity, `offsetX`/`offsetY`,
+  `scale`, `rotation`, `ease`, `opacityEase`), so one end can drive several
+  channels at once. New `TextAnimationEasing` curves include the overshooting
+  `back-*`, `elastic-out` and `bounce-out`. The pure sampling helpers are public:
+  `sampleTextAnimation`, `resolveRampFrames`, `motionForKind`,
+  `TEXT_ANIMATION_KINDS`, `TEXT_ANIMATION_EASINGS`, `DEFAULT_TEXT_TRANSFORM`,
+  `DEFAULT_SHAPE_TRANSFORM`.
+- **`@elah/core`: text templates.** `BUILT_IN_TEXT_TEMPLATES` (14 looks),
+  `findTextTemplate`, and `applyTextTemplate(template, clip)`, which returns the
+  `Partial<Clip>` patch to hand to `engine.updateClip` so the change is undoable.
+  Switching templates is clean rather than cumulative. `resolveTemplateRamp` and
+  `MIN_/MAX_TEMPLATE_RAMP_FRAMES` clamp the ramp for hosts that build a timeline
+  from a template.
+- **`@elah/core`: two new vanilla stores.** `textStylePresetsStore`
+  (+ `BUILT_IN_TEXT_STYLE_PRESETS`, `TextStylePreset`) holds reusable text looks.
+  `clipLoadStore` reports which clips the preview cannot draw yet
+  (`'loading' | 'error'`). It is renderer state, never part of the project,
+  undo history or an autosave.
+- **`@elah/core`: frame sequences.** An ordered set of images addressed by index
+  (360 degree orbits, generated sets, storyboards): `createFrameSequence`,
+  `frameAt`, `frameCount`, `normalizeFrameIndex`, `FrameSequenceController`
+  (clock, drag-to-scrub, `wrap`/`pingpong` looping), `createFramePreloader`,
+  `pickFrameSource`, `supportsImageType`, and `frameSequenceToProject`, which
+  lays a sequence out as image clips so it can be edited and exported.
+- **`@elah/core`: shared source-blob cache.** `sourceBlobCache`,
+  `createSourceBlobCache`, `warmVideoSrc` de-duplicate video downloads between
+  the demuxer and the preview.
+- **`@elah/core`: media library.** `beginImportUrl` registers a remote URL as a
+  `status: 'pending'` asset immediately and lets it resolve later.
+  `determineAssetHasAudio`, `hasAudioDetermined` and `probeHasAudio` answer whether
+  a video carries an audio track. `snapshotMediaLibrary`, `hydrateMediaLibrary`,
+  `refreshMissingThumbnails` and `scheduleThumbnailById` carry the library across
+  a page load. `MediaAsset` gained `MediaAssetAnalysis` / `MediaAssetTopObject`.
+- **`@elah/core`: `PerfSummary`.** A once-a-second summary of the render loop's
+  tick cost and overruns, silent unless the `PERF` trace channel is on
+  (`__trace.on('PERF')`).
+- **`@elah/core`: clip and track fields.** `Clip.speed` (0.25 to 4, video only;
+  `duration` follows it and export honours it), `Clip.crop` (normalized source
+  window) and `Clip.cornerRadius` (0 to 0.5). `Track.protected` (cannot be removed
+  by the user) and `Track.pinned: 'bottom'` (`addTrack` keeps the lane below every
+  non-pinned track). Both track fields are also accepted by `addTrack` options and
+  `InitialTrackConfig`. `normalizeCrop`, `FULL_CROP`, `CropRect` and
+  `transformFromContainRect` are exported for custom placement.
+- **`@elah/core`: export.** `ExportOptions.outputHeight` is now the stage's *short*
+  edge, so `1080` means 1920x1080 landscape and 1080x1920 portrait. The other
+  edge is derived from the stage's aspect ratio and rounded to an even number.
+- **`@elah/timeline`:** `TimelineRef.zoomAtAnchor(nextZoom)` zooms anchored on the
+  playhead (or the viewport centre when it is off-screen).
+  `growClipToAssetDuration(engine, clipId, expectedFallbackFrames, newDurationSec)`
+  is the companion of core's `beginImportUrl`: insert a clip with a fallback length
+  before its media has been probed, then grow it once the real duration is known.
+  Clips that are still loading show a shimmer.
+- **`@elah/react`:** `useClipLoadStore` and `useTextStylePresetsStore`.
+- **`@elah/editor`:** the barrel now re-exports all of the above, including the
+  vanilla `clipLoadStore` and `textStylePresetsStore` beside the other stores.
+  Design tokens for the preview overlays and clip badge were added
+  (`--elah-overlay-*`, `--elah-spinner-*`, `--elah-clip-badge-bg`,
+  `--elah-toast-shadow`); see `docs/design-tokens.md`.
+
+### Changed
+
+- **Multiple video tracks are allowed.** The engine used to cap a project at one
+  video track (`addTrack('video')` returned the existing one); it now adds another. Video tracks composite in
+  track order (the topmost lane draws on top), and a new video track is placed
+  directly below the last existing one.
+- **Playback preferences are persisted by hand, not per frame.** Zoom, volume,
+  mute, playback rate, loop and snap are still saved to `localStorage` under the
+  same key and envelope, so nobody loses their settings. The write now happens
+  when a preference changes; zustand's `persist` middleware re-serialised them on
+  every frame of playback and every scrub move.
+- **`serializeProject` / `deserializeProject` are unchanged for consumers.** They
+  were briefly removed from `@elah/core` and the `@elah/editor` barrel during the
+  port and have been restored as a facade over `readProjectDocument`, so no
+  consumer break ships. One difference: a document with no `version` stamp is now
+  read as version 1 instead of rejected, and a document from a newer build throws
+  `ProjectDocumentError`. The `Not valid project JSON: ...` message for bad JSON
+  is kept.
+- **The timeline ruler and the rest of the UI share one timecode formatter.**
+- **`@elah/timeline`: horizontal clip virtualisation.** Only clips inside the
+  scrolled viewport (plus a margin, quantised to limit re-renders) are mounted.
+
+### Fixed
+
+- **Video frames could upload into a disposed GPU texture after a clip's source
+  changed.** The layer read the texture before replacing the provider, so a
+  re-pointed clip kept writing into the old one. A replaced provider also
+  inherits the clip's reference count, so it is no longer exposed to idle
+  eviction and prewarm seeks.
+- **A preview loading spinner that could never clear** after a failed decoder
+  re-open. The failure watcher is re-armed on the replacement provider, and
+  disposing a provider always clears the clip's load state.
+- **A borrowed frame stretched to the stage between clips.** The held-over frame
+  is now fitted by its own dimensions, not the incoming clip's unknown ones.
+- **The timeline ruler showed `00:90` instead of `01:30`.** Labels now roll over
+  to minutes, show hours only when non-zero, and drop the frames segment on
+  whole-second ticks. The ruler also uses the same content width as the lanes,
+  so ticks no longer drift from clips at low zoom.
+- **The clip loading shimmer had no CSS at all**, so a pending clip showed
+  nothing. `.elah-clip-shimmer` and its sweep animation now ship in
+  `@elah/timeline/styles`.
+- **Horizontal clip virtualisation had been silently dropped** in the port;
+  every clip on a long timeline was mounted.
+- **Preview overlays and clip badges used hard-coded colours** and could not be
+  themed; they now read the new `--elah-*` tokens.
+- **Web playground: deleted imported media was resurrected from IndexedDB, and
+  its object URLs were never revoked.** The library is now restored only for
+  files a project still references, and every object URL the restore mints is
+  revoked on cleanup.
+
 ### Documentation
+
+- **Bundle sizes re-measured and the method fixed.** `BUNDLE_STRATEGY.md` now quotes
+  what a browser downloads (esbuild, minified, gzipped, with code splitting) instead
+  of the raw `tsc` output the old badges were based on: ~64 KiB at startup for the
+  full SDK with the demuxer injected, ~11 KiB engine-only, and ~227 KiB on the quick-start
+  path because `createDefaultDemuxerFactory` imports `mediabunny` statically. Reproduce
+  with `node scripts/measure-bundle.mjs`.
+
+- The package READMEs, `/docs/api`, and `docs/ai/ELAH_FOR_AI_AGENTS.md` now cover
+  the API added above.
 
 - **`playground/` is now `examples/`.** The three standalone apps that install
   `@elah/editor` from npm moved to [`examples/`](examples), and the `/examples`
@@ -34,6 +174,16 @@ versions independently, starting from its own 0.1.0.
 - `/docs/installation` corrected: the sample `package.json` pinned `^0.2.0`, the
   `transpilePackages` and Vite `optimizeDeps.exclude` lists omitted
   `@elah/react`, and the peer-dependency section did not mention `lucide-react`.
+
+## `@elah/cli` [0.1.2] — 2026-10-02
+
+### Changed
+
+- Depends on `@elah/core@^0.6.0`. The build spec places every video clip on one
+  video track, so overlapping video clips are a build error in the spec rather
+  than something the engine rejects — the engine has allowed several video
+  tracks since the multi-track change, but the spec has no way to say which
+  one a clip belongs to.
 
 ## [0.4.1] — 2026-08-02
 
@@ -221,10 +371,14 @@ timeline**. Additive — no breaking changes to the 0.2.x public API.
 - First public release of the three-package split: `@elah/core`,
   `@elah/timeline`, `@elah/editor`.
 
+[0.6.0]: https://github.com/elahlabs/elah/releases/tag/v0.6.0
+[@elah/cli 0.1.2]: https://github.com/elahlabs/elah/releases/tag/cli-v0.1.2
+[0.4.1]: https://github.com/elahlabs/elah/releases/tag/v0.4.1
 [0.4.0]: https://github.com/elahlabs/elah/releases/tag/v0.4.0
 [0.3.2]: https://github.com/elahlabs/elah/releases/tag/v0.3.2
 [0.3.1]: https://github.com/elahlabs/elah/releases/tag/v0.3.1
 [0.3.0]: https://github.com/elahlabs/elah/releases/tag/v0.3.0
 [0.2.1]: https://github.com/elahlabs/elah/releases/tag/v0.2.1
 [0.2.0]: https://github.com/elahlabs/elah/releases/tag/v0.2.0
+[@elah/cli 0.1.1]: https://github.com/elahlabs/elah/releases/tag/cli-v0.1.1
 [@elah/cli 0.1.0]: https://github.com/elahlabs/elah/releases/tag/cli-v0.1.0

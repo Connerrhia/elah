@@ -6,6 +6,7 @@ import { Footer } from '@/components/marketing/Footer'
 import { releases, currentVersion, type ChangeKind } from '@/config/changelog'
 import { siteConfig } from '@/config/site'
 import { formatDate, cn } from '@/lib/utils'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Changelog',
@@ -20,9 +21,9 @@ const kindLabel: Record<ChangeKind, string> = {
 }
 
 const kindStyles: Record<ChangeKind, string> = {
-  added: 'bg-green-50 text-green-800 border-green-200 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/20',
-  changed: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20',
-  fixed: 'bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20',
+  added: 'bg-tertiary/10 text-tertiary border-tertiary/25',
+  changed: 'bg-secondary/10 text-secondary border-secondary/25',
+  fixed: 'bg-primary/10 text-primary border-primary/25',
 }
 
 export default function ChangelogPage() {
@@ -32,24 +33,20 @@ export default function ChangelogPage() {
 
       <main className="flex-1">
         {/* Header */}
-        <div className="border-b border-outline-variant bg-surface py-14">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6">
-            <div className="label-mono mb-3 text-2xs text-on-surface-variant opacity-90">
-              Changelog
-            </div>
-            <h1
-              className="text-3xl font-semibold tracking-tight text-on-surface md:text-4xl"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-            >
-              What&apos;s new in elah
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+        <PageHeader
+          eyebrow="Changelog"
+          title="What&apos;s new in elah"
+          lede={
+            <>
               Release notes for the published packages — <code className="font-mono text-xs">@elah/core</code>,{' '}
               <code className="font-mono text-xs">@elah/timeline</code>, and{' '}
               <code className="font-mono text-xs">@elah/editor</code> ship together and share a version.{' '}
               <code className="font-mono text-xs">@elah/cli</code> is a separate package that versions independently.
-            </p>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
+            </>
+          }
+          width="narrow"
+        >
+          <div className="mt-5 flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
                 <Package className="h-3.5 w-3.5" />
                 Latest: v{currentVersion}
@@ -73,8 +70,7 @@ export default function ChangelogPage() {
                 <ExternalLink className="h-3 w-3" />
               </Link>
             </div>
-          </div>
-        </div>
+        </PageHeader>
 
         {/* Releases */}
         <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -88,7 +84,6 @@ export default function ChangelogPage() {
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <h2
                     className="text-xl font-semibold tracking-tight text-on-surface"
-                    style={{ fontFamily: 'var(--font-inter), sans-serif' }}
                   >
                     <span className="font-mono text-primary">v{release.version}</span>
                   </h2>

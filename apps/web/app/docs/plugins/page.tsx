@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { CodeBlock } from '@/components/docs/CodeBlock'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Plugins & Custom Renderers',
@@ -19,18 +20,19 @@ export default function PluginsPage() {
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">Plugins</div>
-          <h1 className="text-3xl font-semibold tracking-tight text-on-surface" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-            Plugins & Custom Renderers
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            Swap the renderer, add custom GPU layers, or bring your own media demuxer.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          eyebrow="Plugins"
+          title="Plugins & Custom Renderers"
+          lede={
+            <>
+              Swap the renderer, add custom GPU layers, or bring your own media demuxer.
+            </>
+          }
+        />
 
         <section className="mb-10">
-          <h2 id="custom-renderers" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="custom-renderers" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Custom Renderers
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -89,7 +91,7 @@ export class CanvasRenderer implements Renderer {
         </section>
 
         <section className="mb-10">
-          <h2 id="custom-layers" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="custom-layers" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Custom GPU Layers
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
@@ -115,7 +117,7 @@ renderer.registerLayer('gradient', GradientLayer)
         </section>
 
         <section className="mb-10">
-          <h2 id="custom-demuxers" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <h2 id="custom-demuxers" className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20">
             Custom Demuxers
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">

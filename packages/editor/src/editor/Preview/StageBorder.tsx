@@ -49,8 +49,8 @@ export function StageBorder() {
             top: fit.y,
             width: fit.width,
             height: fit.height,
-            border: '1px solid var(--elah-stage-border, rgba(225, 29, 72, 0.45))',
-            boxShadow: 'var(--elah-stage-glow, 0 0 20px rgba(225, 29, 72, 0.08))',
+            border: '1px solid var(--elah-stage-border, rgba(0, 194, 255, 0.45))',
+            boxShadow: 'var(--elah-stage-glow, 0 0 20px rgba(0, 194, 255, 0.08))',
             boxSizing: 'border-box',
           }}
         />

@@ -94,16 +94,22 @@ from `currentColor`.
 | `border`, `border-subtle`, `outline` | Hairlines and interactive/focus edges |
 | `text`, `text-muted`, `text-on-clip` | Foreground text + label on a colored clip |
 | `accent*` | Primary accent (hover/dim/glow/soft/text variants) |
-| `clip-{video,audio,text,image}-{top,mid,bottom,accent}` | Per-clip-type gradient ramp + accent |
-| `tag-*` | Asset/element kind chips (fg/bg per kind) |
+| `clip-{video,audio,text,image,shape,freehand}-{top,mid,bottom,accent}` | Per-clip-type gradient ramp + accent |
+| `tag-*` | Asset/element kind chips (fg/bg per kind: video, audio, image, text, shape, freehand; text, shape and freehand also carry a border) |
+| `font-ui`, `font-mono`, `radius-sm`, `radius-md` | UI and monospace font stacks, small and medium corner radii |
 | `playhead`, `tick-color`, `tick-label` | Playhead needle, ruler ticks and labels |
 | `selection-{border,glow}` | Selected-clip highlight |
 | `transition-*` | Cut-line + diamond marker states (line/hover/idle/fill/stroke/add) |
 | `menu-*`, `popover-*`, `dialog-*` | Context menu, transition picker popover, blocking dialog |
 | `danger-*`, `color-error` | Destructive actions (delete / remove) + generic error text |
 | `info-{bg,border,text}` | Informational toast (e.g. "skipped N duplicates") |
+| `toast-shadow` | Drop shadow under the asset/source panel toasts, `0 4px 12px rgba(0,0,0,.35)` |
 | `effect-*` | Reusable overlays — glosses, inset highlights, scrims, drop shadows |
 | `preview-bg`, `stage-{border,glow}`, `selection-{color,handle}` | Preview canvas + media-transform overlay affordances |
+| `overlay-scrim`, `overlay-text` | Full-stage scrim (`rgba(0,0,0,.7)`) and its text — GL-context recovery layer, loading error label |
+| `overlay-border`, `overlay-bg`, `overlay-bg-hover` | Ghost button drawn on the scrim (Reload preview) |
+| `spinner-track`, `spinner-head` | Preview loading spinner ring and its leading arc |
+| `clip-badge-bg` | Backing pill for small clip badges (e.g. the speed badge), `rgba(0,0,0,.55)` |
 
 ## Adding or changing a token
 

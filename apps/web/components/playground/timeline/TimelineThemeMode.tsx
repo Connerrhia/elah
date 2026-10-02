@@ -264,6 +264,17 @@ const TIMELINE_THEME_CSS = `.elah-root {
   --elah-effect-delete-btn-bg:          rgba(0, 0, 0, 0.5);
   --elah-effect-delete-btn-border:      rgba(255, 255, 255, 0.35);
   --elah-effect-delete-btn-text:        #ffffff;
+
+  /* ── Preview overlays (GL recovery layer, loading spinner) + clip badge ── */
+  --elah-overlay-scrim:     rgba(0, 0, 0, 0.7);
+  --elah-overlay-text:      #ffffff;
+  --elah-overlay-border:    rgba(255, 255, 255, 0.3);
+  --elah-overlay-bg:        rgba(255, 255, 255, 0.1);
+  --elah-overlay-bg-hover:  rgba(255, 255, 255, 0.2);
+  --elah-spinner-track:     rgba(255, 255, 255, 0.25);
+  --elah-spinner-head:      rgba(255, 255, 255, 0.9);
+  --elah-clip-badge-bg:     rgba(0, 0, 0, 0.55);
+  --elah-toast-shadow:      0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .elah-root [data-clip-type='audio'] {

@@ -7,7 +7,7 @@
 > **Scope:** the shipped engine — the `@elah/core` package plus the GPU renderer,
 > decode pipeline, audio, and export that sit beside it.
 >
-> **Note:** the codebase is split into four published packages. The `core/X`
+> **Note:** the codebase is split into five published packages. The `core/X`
 > paths below are shorthand for `packages/core/src/X` (the `@elah/core` package).
 > React hooks that used to live under `core/` (store hooks, `EditorContext`,
 > audio hooks) were extracted into `@elah/react` so `@elah/core` has zero React

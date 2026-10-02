@@ -1,21 +1,32 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, Layers, Clock, Cpu, FileVideo, Terminal } from 'lucide-react'
+import { ArrowRight, Layers, Clock, Cpu, Braces, Terminal } from 'lucide-react'
 import { DocsToc } from '@/components/docs/DocsToc'
+import { docsHome } from '@/config/docs'
+import { PageHeader } from '@/components/site/PageHeader'
 
 export const metadata: Metadata = {
   title: 'Documentation',
   description:
-    'Documentation for elah, the browser-native video editing engine: installation, quick start, timeline and editor components, MP4 export, architecture, and API reference.',
+    'Documentation for elah, the browser-native video editing engine: installation, quick start, timeline and editor components, clips and text motion, project documents, MP4 export, the headless CLI, architecture, API reference, and guides for AI agents.',
   alternates: { canonical: '/docs' },
 }
+
+// "Engine & data" -> "engine-and-data". The group headings come from
+// `docsHome` (config/docs.ts), so the TOC and the headings cannot drift.
+const groupId = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
 
 const toc = [
   { id: 'introduction', title: 'Introduction', level: 2 },
   { id: 'architecture', title: 'Architecture', level: 2 },
   { id: 'packages', title: 'Packages', level: 2 },
   { id: 'design-principles', title: 'Design Principles', level: 2 },
-  { id: 'next-steps', title: 'Next Steps', level: 2 },
+  ...docsHome.map((group) => ({ id: groupId(group.title), title: group.title, level: 2 })),
 ]
 
 export default function DocsPage() {
@@ -23,21 +34,17 @@ export default function DocsPage() {
     <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
       <article className="min-w-0 flex-1 max-w-3xl">
         {/* Page header */}
-        <div className="mb-8 pb-6 border-b border-outline-variant">
-          <div className="label-mono mb-2 text-2xs text-on-surface-variant opacity-90">
-            elah
-          </div>
-          <h1
-            className="text-3xl font-semibold tracking-tight text-on-surface"
-            id="introduction"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-          >
-            Introduction
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-on-surface-variant">
-            elah is an open, framework-agnostic architecture for building browser-native video editors. It currently ships first-class support for Next.js and React, with React Native (experimental) and more frameworks coming soon. Engine-first, renderer-agnostic, scalable from MVP to production.
-          </p>
-        </div>
+        <PageHeader
+          variant="doc"
+          id="introduction"
+          eyebrow="elah"
+          title="Introduction"
+          lede={
+            <>
+              elah is an open, framework-agnostic architecture for building browser-native video editors. It currently ships first-class support for Next.js and React, with React Native (experimental) and more frameworks coming soon. Engine-first, renderer-agnostic, scalable from MVP to production.
+            </>
+          }
+        />
 
         {/* What is it */}
         <section className="mb-10">
@@ -69,7 +76,6 @@ export default function DocsPage() {
           <h2
             id="architecture"
             className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
           >
             Architecture
           </h2>
@@ -116,21 +122,28 @@ export default function DocsPage() {
           <h2
             id="packages"
             className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
           >
             Packages
           </h2>
+          <p className="mb-4 text-sm leading-relaxed text-on-surface-variant">
+            Five packages. <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/core</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/react</code>, <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/timeline</code> and <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/editor</code> are released together and share a version. <code className="rounded bg-surface-container px-1.5 py-0.5 text-xs font-mono">@elah/cli</code> versions independently.
+          </p>
           <div className="space-y-3">
             {[
               {
                 name: '@elah/editor',
-                desc: 'The full SDK. Exports EditorProvider, Timeline, Preview, AssetPanel, all hooks, and re-exports core.',
+                desc: 'The full SDK. Exports EditorProvider, Preview, AssetPanel and the transform overlays, and re-exports core, react and timeline.',
                 icon: Layers,
               },
               {
                 name: '@elah/core',
                 desc: 'Framework-agnostic engine. TimelineEngine, PlaybackEngine, resolveTimeline, GpuRenderer, export pipeline. Zero React imports.',
                 icon: Cpu,
+              },
+              {
+                name: '@elah/react',
+                desc: 'React bindings. EditorContext, useEditor, the store hooks, the media library hook and the audio mixer hooks. Core stays React-free.',
+                icon: Braces,
               },
               {
                 name: '@elah/timeline',
@@ -161,7 +174,6 @@ export default function DocsPage() {
           <h2
             id="design-principles"
             className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
           >
             Design Principles
           </h2>
@@ -185,38 +197,32 @@ export default function DocsPage() {
           </div>
         </section>
 
-        {/* Next steps */}
-        <section>
-          <h2
-            id="next-steps"
-            className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20"
-            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
-          >
-            Next Steps
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {[
-              { title: 'Installation', desc: 'Install @elah/editor from npm and configure Next.js or Vite.', href: '/docs/installation' },
-              { title: 'Quick Start', desc: 'Build the full editor in under 20 lines. Wire your demuxer, render, ship.', href: '/docs/getting-started' },
-              { title: 'Timeline', desc: 'Deep-dive into tracks, clips, playback, snapping, and keyboard shortcuts.', href: '/docs/timeline' },
-              { title: 'CLI & Server', desc: 'Render headlessly: build specs, elah serve, Docker self-hosting.', href: '/docs/cli' },
-              { title: 'API Reference', desc: 'Full reference for TimelineEngine, PlaybackEngine, resolveTimeline, hooks.', href: '/docs/api' },
-              { title: 'Export', desc: 'Render a project to MP4 in the browser with exportVideo().', href: '/docs/export' },
-            ].map(({ title, desc, href }) => (
-              <Link
-                key={href}
-                href={href}
-                className="group flex items-start justify-between gap-2 rounded-md border border-outline-variant bg-surface-low p-4 no-underline transition-colors hover:border-outline"
-              >
-                <div>
-                  <div className="mb-1 text-sm font-medium text-on-surface">{title}</div>
-                  <div className="text-xs leading-relaxed text-on-surface-variant">{desc}</div>
-                </div>
-                <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            ))}
-          </div>
-        </section>
+        {/* Where to go next: grouped cards, driven by docsHome in config/docs.ts */}
+        {docsHome.map((group) => (
+          <section key={group.title} className="mb-10 last:mb-0">
+            <h2
+              id={groupId(group.title)}
+              className="mb-4 text-xl font-semibold tracking-tight text-on-surface scroll-mt-28 md:scroll-mt-20"
+            >
+              {group.title}
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {group.cards.map(({ title, desc, href }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="group flex items-start justify-between gap-2 rounded-md border border-outline-variant bg-surface-low p-4 no-underline transition-colors hover:border-outline"
+                >
+                  <div>
+                    <div className="mb-1 text-sm font-medium text-on-surface">{title}</div>
+                    <div className="text-xs leading-relaxed text-on-surface-variant">{desc}</div>
+                  </div>
+                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
       </article>
 
       <DocsToc items={toc} />

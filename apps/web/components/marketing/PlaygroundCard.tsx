@@ -28,11 +28,15 @@ const variantIcons = {
   demo: Cpu,
 }
 
+// Palette tokens (resolved per theme in globals.css), not hex literals.
 const variantColors = {
-  full: '#b7102a',
-  timeline: '#485f84',
-  demo: '#006860',
+  full: 'var(--color-primary)',
+  timeline: 'var(--color-secondary)',
+  demo: 'var(--color-tertiary)',
 }
+
+/** `color` at `pct`% opacity; works with CSS-variable colours, unlike hex+alpha. */
+const tint = (color: string, pct: number) => `color-mix(in oklab, ${color} ${pct}%, transparent)`
 
 export function PlaygroundCard({
   title,
@@ -78,13 +82,13 @@ export function PlaygroundCard({
           <div className="flex items-center gap-2">
             <div
               className="flex h-6 w-6 items-center justify-center rounded"
-              style={{ backgroundColor: accentColor + '18', border: `1px solid ${accentColor}30` }}
+              style={{ backgroundColor: tint(accentColor, 9), border: `1px solid ${tint(accentColor, 19)}` }}
             >
               <Icon className="h-3.5 w-3.5" style={{ color: accentColor }} />
             </div>
             <h3
               className="text-sm font-semibold text-on-surface"
-              style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+              style={{ fontFamily: 'var(--font-display), sans-serif' }}
             >
               {title}
             </h3>
@@ -108,15 +112,15 @@ export function PlaygroundCard({
           href={href}
           className="flex items-center justify-center gap-2 rounded border px-3 py-2 text-xs font-medium transition-colors"
           style={{
-            borderColor: accentColor + '40',
+            borderColor: tint(accentColor, 25),
             color: accentColor,
-            backgroundColor: accentColor + '08',
+            backgroundColor: tint(accentColor, 3),
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = accentColor + '14'
+            e.currentTarget.style.backgroundColor = tint(accentColor, 8)
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = accentColor + '08'
+            e.currentTarget.style.backgroundColor = tint(accentColor, 3)
           }}
           onClick={() => trackPlaygroundLaunch({ source: 'playground_card', title, href, variant, status })}
         >
@@ -145,7 +149,7 @@ function FullEditorPreview({ color }: { color: string }) {
             <div className="h-2.5 w-6 rounded-sm bg-white/10" />
             <div
               className="h-2.5 rounded-sm"
-              style={{ width: `${30 + i * 10}%`, backgroundColor: color + '60' }}
+              style={{ width: `${30 + i * 10}%`, backgroundColor: tint(color, 38) }}
             />
           </div>
         ))}
@@ -171,7 +175,7 @@ function TimelinePreview({ color }: { color: string }) {
               style={{
                 left: `${(i - 1) * 15}%`,
                 width: `${20 + i * 8}%`,
-                backgroundColor: color + '80',
+                backgroundColor: tint(color, 50),
               }}
             />
           </div>
@@ -189,7 +193,7 @@ function DemoPreview({ color }: { color: string }) {
           <div
             key={i}
             className="h-10 w-16 rounded border border-white/10"
-            style={{ backgroundColor: color + (i % 2 === 0 ? '30' : '15') }}
+            style={{ backgroundColor: tint(color, i % 2 === 0 ? 19 : 8) }}
           />
         ))}
       </div>

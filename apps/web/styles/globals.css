@@ -5,7 +5,7 @@
 @layer base {
   /* Visible keyboard focus for all interactive elements (a11y: WCAG 2.4.7). */
   :focus-visible {
-    outline: 2px solid var(--color-outline);
+    outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
     border-radius: 2px;
   }
@@ -35,6 +35,8 @@
     /* Borders */
     --color-outline:             #8f6f6e;
     --color-outline-variant:     #e4bebc;
+    --color-outline-subtle:      #efd9d8; /* softer hairline than outline-variant */
+    --color-focus-ring:          var(--color-outline); /* WCAG 1.4.11: >= 3:1 */
 
     /* Accent — Elah blue (unified with the editor/playground accent #00c2ff;
        light theme uses a darker cyan so white text on the fill clears WCAG AA) */
@@ -48,27 +50,35 @@
     --color-tertiary:            #006860;
   }
 
-  /* ── Dark theme (Precision Studio — warm charcoal + crimson) ────────── */
+  /* ── Dark theme (Precision Studio — the editor's cool near-black) ──────
+     The site wears the editor's palette (packages/editor/src/styles/tokens.css,
+     the --elah-* namespace) so chrome and the embedded editor share one scale:
+     no seam on /playground/*, no warm-to-cool flip between / and /docs.
+     The landing tokens (.landing-root) alias this block; change colours here. */
   .dark {
-    /* Surface hierarchy — tonal lift via warm charcoal steps */
-    --color-surface:             #111010; /* main background */
-    --color-surface-dim:         #0d0c0c;
-    --color-surface-bright:      #2c2828;
-    --color-surface-lowest:      #0a0909; /* deepest — nav underlay */
-    --color-surface-low:         #181616; /* panels, sidebars */
-    --color-surface-container:   #201d1d; /* cards, sections */
-    --color-surface-high:        #282424; /* modals, elevated menus */
-    --color-surface-highest:     #312d2d; /* chips, scrollbar thumb */
+    /* Surface hierarchy — tonal lift via cool near-black steps */
+    --color-surface:             #06070a; /* main background (--elah-bg) */
+    --color-surface-dim:         #06070a;
+    --color-surface-bright:      #232938; /* --elah-border step */
+    --color-surface-lowest:      #040508; /* deepest — nav underlay, card-base */
+    --color-surface-low:         #0a0d14; /* panels, sidebars (--elah-bg-secondary) */
+    --color-surface-container:   #0d1017; /* cards, sections (--elah-bg-card) */
+    --color-surface-high:        #171d2b; /* modals, elevated menus (--elah-bg-elevated) */
+    --color-surface-highest:     #1e2433; /* chips, scrollbar thumb */
 
     /* Text */
-    --color-on-surface:          #f0ecea; /* warm off-white */
-    --color-on-surface-variant:  #9e918f; /* warm mid-gray */
-    --color-inverse-surface:     #f0ecea;
-    --color-inverse-on-surface:  #231f1f;
+    --color-on-surface:          #f3f4f6; /* cool off-white (--elah-text) */
+    --color-on-surface-variant:  #9ca3af; /* cool mid-gray (--elah-text-muted) */
+    --color-inverse-surface:     #f3f4f6;
+    --color-inverse-on-surface:  #0d1017;
 
     /* Borders */
-    --color-outline:             #564848; /* interactive / focus edges */
-    --color-outline-variant:     #302828; /* structural hairlines */
+    --color-outline:             #2d3548; /* interactive edges (--elah-outline) */
+    --color-outline-variant:     #232938; /* structural hairlines (--elah-border) */
+    --color-outline-subtle:      #1a1f2b; /* quietest hairline (--elah-border-subtle) */
+    /* --color-outline is 1.6:1 on the page: right for a border, too faint for a
+       focus ring (WCAG 1.4.11 needs 3:1), so the ring takes the accent. */
+    --color-focus-ring:          var(--color-primary);
 
     /* Accent — Elah blue (the editor's cyan #00c2ff; bright fill takes dark
        text, matching the editor's --elah-accent-text) */
@@ -78,8 +88,8 @@
     --color-on-primary:          #06212b; /* dark ink on the bright cyan fill */
 
     /* Supporting */
-    --color-secondary:           #a09898;
-    --color-tertiary:            #6ab0d0;
+    --color-secondary:           #a7afbf; /* cool neutral, a step above on-surface-variant */
+    --color-tertiary:            #6ab0d0; /* already cool: hue 197deg vs accent 195deg */
   }
 
   * {
@@ -203,9 +213,10 @@
    editor inherits light/dark mode automatically via CSS variable inheritance.
    Clip colours and typography remain hard-coded (editor-domain semantics).   */
 
+:root,
 .elah-root {
-  /* The editor uses a fixed cool blue-gray scheme, decoupled from the site's
-     warm light/dark theme (it is a dark tool surface in both modes). Re-theme by
+  /* The editor uses a fixed cool blue-gray scheme, which the site's own dark
+     --color-* scale now matches (it is a dark tool surface in both modes). Re-theme by
      overriding any of these --elah-* variables. */
 
   /* Surfaces */
@@ -363,6 +374,20 @@
   --elah-info-bg:          #1a2433;
   --elah-info-border:      #355070;
   --elah-info-text:        #c8d8f0;
+
+  /* Scrims and spinners drawn over the preview surface, plus the clip speed
+     badge. Deliberately literal: these sit on top of decoded video, so they
+     read against the footage rather than against the panel palette. Mirrors
+     the same block in packages/editor/src/styles/tokens.css. */
+  --elah-overlay-scrim:    rgba(0, 0, 0, 0.7);
+  --elah-overlay-text:     #ffffff;
+  --elah-overlay-border:   rgba(255, 255, 255, 0.3);
+  --elah-overlay-bg:       rgba(255, 255, 255, 0.1);
+  --elah-overlay-bg-hover: rgba(255, 255, 255, 0.2);
+  --elah-spinner-track:    rgba(255, 255, 255, 0.25);
+  --elah-spinner-head:     rgba(255, 255, 255, 0.9);
+  --elah-clip-badge-bg:    rgba(0, 0, 0, 0.55);
+  --elah-toast-shadow:     0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 /* Figma: audio clips show a tinted waveform on a dark body — teal-green at rest,
@@ -434,11 +459,14 @@
 }
 
 /* ── Landing v2 ───────────────────────────────────────────────────────────────
-   The redesigned marketing home (components/landing/*) uses its own cool
-   near-black palette, decoupled from the site's warm surfaces. Tokens are
-   scoped to .landing-root so no other route is repainted. Values mirror the
-   design's html / html[data-theme=light]; here they follow the app's own
-   .dark class instead (light in :root scope, dark under .dark). */
+   The redesigned marketing home (components/landing/*). Its dark tokens ALIAS
+   the site's --color-* scale (which is the editor's palette), so there is one
+   place to change a colour. The token names are kept: components consume them
+   through inline styles and lv-* classes. Tokens are scoped to .landing-root.
+
+   Light values stay literal. The site is dark-only (ThemeProvider is fixed and
+   layout.tsx adds .dark pre-paint), and the light --color-* scale is warm, so
+   aliasing it would change this block's cool light values for no visible gain. */
 
 .landing-root {
   --bg: #f7f9fc;
@@ -462,19 +490,27 @@
 }
 
 .dark .landing-root {
-  --bg: #06070a;
-  --bg2: #0a0d14;
-  --card: #0d1017;
-  --elev: #171d2b;
-  --line: #232938;
-  --line2: #1a1f2b;
-  --text: #f3f4f6;
-  --muted: #9ca3af;
+  --bg: var(--color-surface);
+  --bg2: var(--color-surface-low);
+  --card: var(--color-surface-container);
+  --elev: var(--color-surface-high);
+  --line: var(--color-outline-variant);
+  --line2: var(--color-outline-subtle);
+  --text: var(--color-on-surface);
+  --muted: var(--color-on-surface-variant);
+  --accent: var(--color-primary);
+  --code: var(--color-surface-low);
+
+  /* Landing-only, kept literal on purpose:
+     --faint  third text tier (5.3:1); no other page uses one, and its value is
+              not on the editor ramp, so it is not promoted to a site token.
+     --ink    dark text on the accent fill; #04202a, a hair off the site's
+              --color-on-primary (#06212b), kept so / renders byte-identical.
+     --nav    the glass-pill fill is --bg at 78% alpha; CSS cannot alias a
+              colour with an alpha channel without color-mix. */
   --faint: #7a858b;
-  --accent: #00c2ff;
   --ink: #04202a;
   --nav: rgba(6, 7, 10, 0.78);
-  --code: #0a0d14;
 }
 
 /* Responsive split: the design swaps a desktop product-shot for a phone mockup
@@ -645,19 +681,6 @@
 }
 .landing-root details[open] .lv-faq-caret {
   transform: rotate(45deg);
-}
-
-/* Material Symbols baseline (icon font loaded in layout.tsx). */
-.landing-root .material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
-  font-weight: normal;
-  font-style: normal;
-  font-variation-settings: 'opsz' 20, 'wght' 300, 'FILL' 0, 'GRAD' 0;
-  line-height: 1;
-  vertical-align: middle;
-  -webkit-font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
-  user-select: none;
 }
 
 /* Interaction states (the design expressed these via a non-standard
