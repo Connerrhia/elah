@@ -137,8 +137,9 @@ elah/
 ├── CONTRIBUTING.md               # branch/commit conventions, PR rules
 ├── AGENTS.md                     # brief for coding agents working in this repo
 ├── docs/
-│   └── ai/
-│       └── ELAH_FOR_AI_AGENTS.md # self-contained SDK guide for AI tools (no checkout needed)
+│   ├── ai/
+│   │   └── ELAH_FOR_AI_AGENTS.md # self-contained SDK guide for AI tools (no checkout needed)
+│   └── react-native/             # hand-off docs for the proposed @elah/react-native binding (start at README.md)
 ├── apps/
 │   └── web/                      # Next.js site + docs + playgrounds (www.elah.dev)
 ├── examples/                     # standalone apps installing @elah/* from npm
@@ -371,6 +372,10 @@ hardening PRs against a live engine. Start from [`ROADMAP.md`](./ROADMAP.md) and
 [`CURRENT_LIMITATIONS.md`](./CURRENT_LIMITATIONS.md), then see
 [`CONTRIBUTING.md`](./CONTRIBUTING.md) for branch/commit conventions, PR rules,
 and the architectural invariants every renderer/decode change must preserve.
+
+Planning or building the **React Native binding**? Start at
+[`docs/react-native/README.md`](./docs/react-native/README.md): the platform audit, the target
+architecture and twelve ordered workstreams.
 
 ---
 

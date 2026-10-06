@@ -55,6 +55,9 @@ examples/          # standalone apps consuming @elah/editor from npm — not
 1. Skim [`ROADMAP.md`](./ROADMAP.md) (current state) and
    [`CURRENT_LIMITATIONS.md`](./CURRENT_LIMITATIONS.md) (known gaps).
 2. Pick a slice small enough to land in one reviewable PR.
+   For the React Native binding, pick a workstream from
+   [`docs/react-native/04-workstreams.md`](./docs/react-native/04-workstreams.md) instead (read
+   [`docs/react-native/README.md`](./docs/react-native/README.md) first).
 3. Branch, implement, verify (`npm run typecheck` + `npm test`), smoke-test in
    the dev app (`npm run dev`, then open the editor or a playground route), open a PR.
 

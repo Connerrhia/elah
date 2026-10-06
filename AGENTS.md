@@ -36,6 +36,7 @@ Three invariants hold everywhere. Do not violate them:
 | `apps/web` | The marketing + docs site (elah.dev). Docs pages are hand-written TSX, not MDX. |
 | `apps/server` | Render-server example built on `@elah/cli`. |
 | `examples/` | Standalone example apps that install from **npm**. Outside the root workspace on purpose — see [`examples/AGENTS.md`](examples/AGENTS.md). |
+| `docs/react-native/` | Hand-off docs for the proposed `@elah/react-native` binding (audit, architecture, workstreams). Nothing under `packages/react-native` exists yet; start at its `README.md`. |
 
 ## Commands
 

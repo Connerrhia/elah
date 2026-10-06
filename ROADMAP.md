@@ -79,6 +79,7 @@ This is the seam that the transition snapshot overlay (`Scene.transitions`) and 
 - Effects / filters / animation (per-clip shader passes via a new layer)
 - Asset persistence — **partly shipped in 0.6.0**: `snapshotMediaLibrary` / `hydrateMediaLibrary` and `readProjectDocument` / `relinkProjectMedia` are the seam, with the host supplying storage. Still open: a built-in IndexedDB / OPFS adapter and storing the bytes of locally imported files (`blob:` URLs do not survive a reload)
 - WebGPU backend behind the existing `Renderer` interface
+- **React Native binding** (`@elah/react-native`) — proposed, not started. Skia renderer, native decode/encode, same `Project` document and resolver. Hand-off docs in [`docs/react-native/`](./docs/react-native/README.md); the first step is a browser-free `@elah/core/engine` entry point
 
 ---
 
