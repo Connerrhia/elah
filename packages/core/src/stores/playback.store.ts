@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla'
 import { toFrame } from '../utils/frames'
+import { clampZoom } from '../utils/timelineMath'
 
 export interface PlaybackState {
   /** Current playhead position in frames */
@@ -141,9 +142,9 @@ export const playbackStore = createStore<PlaybackState & PlaybackActions>()((set
   toggleLoop: () => set((s) => ({ loop: !s.loop })),
   setVolume: (volume) => set({ volume: Math.max(0, Math.min(1, volume)) }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
-  // Lower bound is deliberately tiny so long timelines (10+ min) can be
-  // zoomed out far enough to fit on screen (e.g. 30min@30fps ≈ 54k frames).
-  setZoom: (zoom) => set({ zoom: Math.max(0.02, Math.min(50, zoom)) }),
+  // Range lives in utils/timelineMath (ZOOM_MIN / ZOOM_MAX) so gesture code
+  // can clamp before it asks the store, and anchor its scroll on the clamped value.
+  setZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
   toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
 }))
 

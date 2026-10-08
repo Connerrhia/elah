@@ -236,6 +236,36 @@ export { framesToTimecode, secondsToFrames, framesToSeconds, getTotalFrames, cli
 export { generateId } from './utils/id'
 export { snapFrame, buildSnapPoints, resolveOverlapEdgeSnap, DEFAULT_OVERLAP_TOLERANCE } from './utils/snap'
 
+// --- Timeline geometry (pure; shared by @elah/timeline and @elah/react-native) ---
+export {
+  TIMELINE_MIN_CONTENT_WIDTH,
+  timelineContentWidth,
+  pxToFrames,
+  xToFrame,
+  snapThresholdFrames,
+  ZOOM_MIN,
+  ZOOM_MAX,
+  clampZoom,
+  computeAnchoredScrollLeft,
+  resolveZoomAnchorX,
+  wheelZoomStep,
+  pinchZoom,
+  RULER_TICK_INTERVALS_SEC,
+  formatRulerLabel,
+  computeRulerTicks,
+  isCompatibleTrackKind,
+  isClipAllowedOnTrack,
+  TRIM_HANDLE_WIDTH_PX,
+  isUnlimitedClipType,
+  maxTrimDuration,
+  minTrimDuration,
+  minLeftTrimStart,
+  neighbourBounds,
+  clampLeftTrim,
+  clampRightTrim,
+} from './utils/timelineMath'
+export type { RulerTick, TrimResult, TrimLimits } from './utils/timelineMath'
+
 
 // --- Export pipeline ---
 export { exportVideo } from './export'

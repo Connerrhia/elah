@@ -26,6 +26,85 @@ the public API"; on-device evidence is a screenshot or recording in the PR.
 
 ---
 
+## Timeline first (the current track, decided 2026-10-08)
+
+The maintainer chose to ship the **timeline** before the preview, decode, audio and export.
+The base is built; the rest is cut into small issues for contributors. This track replaces
+**RN-P9** and pulls the parts of RN-P0 to RN-P3 the timeline needs. The renderer track (RN-P4
+onwards) waits until the timeline works on a device.
+
+```
+RN-T0 base (done) ──┬── RN-T1 = RN-P1 core/engine entry ──┐
+                    └── RN-T2 = RN-P2 EditorProvider move ─┴── RN-T3 Expo harness
+                                                                    │
+                                     RN-T4 lanes + clips (static) ──┤
+                                     RN-T5 ruler, playhead, seek  ──┤ (T5..T8 in any order
+                                     RN-T6 move gesture           ──┤  once T4 is merged)
+                                     RN-T7 trim gesture           ──┤
+                                     RN-T8 pinch zoom + fit       ──┤
+                                     RN-T9 selection, delete, undo ─┘
+```
+
+Ready-to-file issue bodies for T1 to T9 are in [`issues/`](./issues/README.md).
+
+### The contract every timeline issue builds on
+
+The base lives in `packages/react-native/src/timeline/model/` and is **platform-free**: no
+React, React Native, gesture-handler, Reanimated or Skia import is allowed there
+(`src/dependencyRules.test.ts` fails the build). Components go in
+`packages/react-native/src/timeline/components/` and may import anything the peers allow.
+
+Every gesture has the same three-step shape. The component owns the recogniser; the model owns
+the meaning.
+
+| Step | Function | Called from | Returns |
+|---|---|---|---|
+| begin | `beginMove(clipId, snapshotFromStores())` / `beginTrim(...)` / `beginPinch(...)` | gesture `onStart` (JS thread) | a frozen session, or `null` (locked lane, missing clip) |
+| update | `updateMove(session, { translationX, pointerY })` / `updateTrim` / `updatePinch` | gesture `onUpdate` | a preview: frames for the label, `dx`/`dy` or zoom + scroll for the visuals |
+| end | `endMove(session, preview, snapshot)` / `endTrim(session, preview)` | gesture `onEnd` | an `EngineCommand`, or `null` for a tap |
+| apply | `applyEngineCommand(defaultCommandTargets(engine), command)` | right after `end` | nothing; the engine and stores update, React re-renders |
+
+Rules a component PR must keep (reviewers check them):
+
+- **No project edit outside `applyEngineCommand`.** Not `engine.*`, not `store.setState`.
+- **Visual feedback during a gesture is a transform**, never a `previewClip`. `previewClip` throws
+  on an overlap; `moveClip`/`trimClip` reject silently after the model has already settled the
+  drop into a gap.
+- **No React state per frame of a gesture.** Drive the block's transform from a Reanimated
+  shared value; commit once on release.
+- **Pure math goes in `@elah/core` `utils/timelineMath.ts`** with a test, not in a component.
+
+### RN-T0 — Base: shared timeline math and the gesture model
+
+**Status:** done (uncommitted on `dev`, 2026-10-08)
+**What landed:**
+
+- `packages/core/src/utils/timelineMath.ts` (+ 55 tests): `timelineContentWidth`,
+  `computeAnchoredScrollLeft`, `resolveZoomAnchorX`, `wheelZoomStep`, `isCompatibleTrackKind`,
+  `isClipAllowedOnTrack` and `formatRulerLabel` moved from `@elah/timeline`; new
+  `computeRulerTicks`, `pinchZoom`, `clampZoom`/`ZOOM_MIN`/`ZOOM_MAX`, `pxToFrames`, `xToFrame`,
+  `snapThresholdFrames`, `maxTrimDuration`, `minTrimDuration`, `minLeftTrimStart`,
+  `neighbourBounds`, `clampLeftTrim`, `clampRightTrim`. Exported from the core and editor barrels.
+  `@elah/timeline`'s three modules are now re-exports and its `Ruler` uses `computeRulerTicks`;
+  its tests stay green, so the web timeline is unchanged.
+- `packages/react-native` 0.1.0: the model above plus 80 tests in Node against the real
+  `TimelineEngine`, including "the gesture's command produces the same project the web
+  timeline's call does".
+
+**Surprise worth knowing:** the web trim handles only learn about the source's left bound and
+the neighbouring clips on release, when `trimClip` silently rejects and the block snaps back.
+The mobile model applies both bounds during the drag (`minLeftTrimStart`, `neighbourBounds`),
+so the preview never shows a position the commit refuses. The web could adopt the same helpers.
+
+**Not done here:** anything that needs Metro or a device. See RN-T1 to RN-T3.
+
+### RN-T1 to RN-T9
+
+Their bodies are in [`issues/`](./issues/README.md) so they can be pasted into GitHub as-is.
+When one lands, add a `### RN-Tn` entry here with its status and its surprise, as for RN-T0.
+
+---
+
 ## RN-P0 — Feasibility spike on a device
 
 **Status:** proposed
