@@ -68,7 +68,8 @@ cd apps/mobile && npx expo start -c                     # clear Metro cache afte
 | `@elah/core/engine` purity | `engine.no-browser.test.ts` | node | No browser module or `import.meta` is reachable. |
 | Renderer geometry, draw order, resource lifecycle | vitest in `packages/react-native` | node + `test/skiaMock.ts` | The Skia calls receive the rects `resolveDrawRect` computes; equal scenes are no-ops; leaving clips release. |
 | Text wrapping parity | vitest with CanvasKit headless | node | Same line breaks as recorded web output for the bundled font. |
-| Gesture reducers | vitest | node | Pure `(gesture, state) → engine calls`. |
+| Gesture reducers | vitest in `packages/react-native` (`src/timeline/model/*.test.ts`) | node | Pure `(gesture, state) → EngineCommand`, applied to the real `TimelineEngine`. Exists since RN-T0. |
+| Model stays platform-free | `src/dependencyRules.test.ts` | node | No React / RN / gesture-handler / Reanimated / Skia import under `src/timeline/model`. |
 | Decode accuracy, A/V sync, export determinism, fps | manual on device | real hardware | Recorded in the PR as screenshots / recordings / hashes; CI cannot run these. |
 
 CI runs the first five. **Device evidence is mandatory for any PR that touches the renderer,

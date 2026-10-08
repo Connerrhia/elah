@@ -146,7 +146,10 @@ the mobile package would fork the trickiest plumbing in the codebase (the echo g
 
 ## D12 — Timeline math to core; UI rewritten
 
-**Decided.** `zoomAnchor.ts`, `contentWidth.ts` and `trackCompat.ts` are pure, tested and have no
+**Decided, and done for the math (RN-T0, 2026-10-08).** The gesture *meaning* (move, trim,
+pinch) also lives outside the components, in `packages/react-native/src/timeline/model/`, as
+pure reducers that return an `EngineCommand`. The timeline is built first, before the preview;
+see the top of `04-workstreams.md`. `zoomAnchor.ts`, `contentWidth.ts` and `trackCompat.ts` are pure, tested and have no
 React dependency, so they belong in `@elah/core` by the "what lives where" rule. The components
 are DOM and Tailwind; a gesture-handler timeline shares nothing with them but the math and the
 stores. "Port the web timeline" is not a ticket anyone should take.

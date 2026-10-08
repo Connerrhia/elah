@@ -1,6 +1,8 @@
 # React Native binding — start here
 
-> **Status: proposed.** Nothing under `packages/react-native` exists yet.
+> **Status: timeline first, base built (2026-10-08).** `packages/react-native` holds the timeline
+> model, tested in Node; the shared timeline math is in `@elah/core`. Nothing runs on a device
+> yet. Contributor issues for the rest of the timeline: [`issues/`](./issues/README.md).
 > **Last verified: 2026-10-06** against `dev` @ `e9fe11c` (packages 0.6.0, `@elah/cli` 0.1.2),
 > the installed `node_modules`, and the npm registry / vendor docs cited inline.
 > Every claim in this folder was checked against the source on that date. If you find one
@@ -64,7 +66,9 @@ mutation funnel, pure resolver) are not negotiable on mobile either.
 ## How to pick up work
 
 1. Read the six docs in order. It takes about forty minutes.
-2. Pick the lowest-numbered workstream in [`04-workstreams.md`](./04-workstreams.md) whose
+2. The current track is **timeline first**: take an unclaimed issue from
+   [`issues/`](./issues/README.md) (RN-T1 to RN-T9) whose dependencies are merged. Outside that
+   track, pick the lowest-numbered workstream in [`04-workstreams.md`](./04-workstreams.md) whose
    dependencies are met and that nobody has claimed (open an issue titled `RN-Pn: <goal>` to
    claim it).
 3. Stay inside the workstream's **allowed files**. If you need to touch something else, that is a

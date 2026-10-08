@@ -11,6 +11,25 @@ versions independently, starting from its own 0.1.0.
 
 ## [Unreleased]
 
+### Added
+
+- **`@elah/core`: timeline geometry.** Pure helpers shared by every timeline UI, in
+  `utils/timelineMath.ts`: `timelineContentWidth`, `computeRulerTicks`, `formatRulerLabel`,
+  `computeAnchoredScrollLeft`, `resolveZoomAnchorX`, `wheelZoomStep`, `pinchZoom`, `clampZoom`
+  (`ZOOM_MIN` / `ZOOM_MAX`), `pxToFrames`, `xToFrame`, `snapThresholdFrames`,
+  `isCompatibleTrackKind`, `isClipAllowedOnTrack`, and the trim limits `maxTrimDuration`,
+  `minTrimDuration`, `minLeftTrimStart`, `neighbourBounds`, `clampLeftTrim`, `clampRightTrim`.
+  Re-exported by `@elah/editor`.
+- **`@elah/react-native` 0.1.0 (pre-release, not published).** The platform-free timeline model:
+  lane layout, move / trim / pinch gesture reducers and a single engine-command applier, tested
+  against the real `TimelineEngine`. No component yet.
+
+### Changed
+
+- **`@elah/timeline`:** the zoom-anchor, content-width and track-compatibility modules now
+  re-export from `@elah/core`, and the ruler computes its ticks with `computeRulerTicks`. No
+  behaviour change. `playbackStore.setZoom` clamps with the shared `clampZoom`.
+
 ## [0.6.0] — 2026-10-02
 
 The premium editor port (PR #72), verified. Multiple video tracks, clip speed,

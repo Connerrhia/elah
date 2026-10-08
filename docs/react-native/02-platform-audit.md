@@ -125,6 +125,16 @@ Pure modules worth lifting: `zoomAnchor.ts` (anchored zoom arithmetic), `content
 built on the engine and the stores). Only the last group is exported today. RN-P9 proposes
 moving the first three into `@elah/core` `utils/` so both timelines share them.
 
+**Update 2026-10-08 (RN-T0):** done. The first three, the ruler tick and label logic, and new
+trim / pinch helpers live in `packages/core/src/utils/timelineMath.ts`; the timeline modules
+are re-exports.
+
+**Correction 2026-10-08:** "`@elah/react`: reusable unchanged" (above) holds for the DOM but not
+for Metro. `@elah/react` imports `@elah/core`'s root barrel by value, which reaches the
+`import.meta` file, and `useMediaLibrary.ts` imports the browser importers (`importFiles`,
+`importUrl`, `importBlob`). RN-T1 moves its value imports to `@elah/core/engine` and splits the
+importers out.
+
 ### `@elah/editor`: one file reusable
 
 `editor/EditorProvider.tsx` constructs the two engines, wires `change`/`history:change` into

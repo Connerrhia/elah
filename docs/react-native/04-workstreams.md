@@ -1,6 +1,7 @@
 # 04 — Workstreams
 
-> Status: proposed. Last verified: 2026-10-06 against `dev` @ `e9fe11c`.
+> Status: timeline-first track active (RN-T0 done 2026-10-08); RN-P* proposed.
+> Last verified: 2026-10-08 against `dev` @ `63c74c5`.
 > One workstream = one PR (or a short series of PRs if the ticket says so). Claim one by opening
 > an issue titled `RN-Pn: <goal>`. When it lands, change its **Status** line here to
 > `done (PR #...)` and record anything you learned that the next ticket needs.
@@ -414,7 +415,8 @@ tests, `README.md`; `apps/mobile` asset panel screen.
 
 ## RN-P9 — Timeline v0 (gestures)
 
-**Status:** proposed
+**Status:** superseded by the timeline-first track (RN-T0 to RN-T9, top of this file). Step 1
+(the math move) is done in RN-T0; the rest is split across RN-T4 to RN-T9. Kept for the reasoning.
 **Depends on:** P3 (P4 for the preview beside it)
 **Goal:** Scroll, zoom, select, move, trim and seek on device, every edit through the engine.
 

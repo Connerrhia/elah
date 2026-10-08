@@ -31,10 +31,11 @@ export {
   useTextStylePresetsStore,
   useMediaLibraryStore,
   useClipLoadStore,
-  useMediaLibrary,
-  useAssets,
 } from '@elah/react'
-export type { EditorContextValue, BoundStoreHook, UseMediaLibraryApi } from '@elah/react'
+export type { EditorContextValue, BoundStoreHook } from '@elah/react'
+// Deliberately NOT re-exported: useMediaLibrary / useAssets. @elah/react's
+// useMediaLibrary imports the browser importers (importFiles, importUrl,
+// importBlob) by value; mobile import is its own seam (RN-P8). See RN-T1.
 
 // --- Engine types. Values (TimelineEngine, resolveTimeline, the clip
 // factories...) are re-exported from `@elah/core/engine` once RN-P1 adds it;

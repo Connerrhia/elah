@@ -455,6 +455,9 @@ Clip fields are **flat**: `scene.texts[0].content`, `.fontSize`, `.color` — no
 `getTotalFrames(project)` · `generateId()` · `splitClipAtPlayhead(engine)` ·
 `snapFrame(frame, points, threshold)` · `buildSnapPoints(clipsByTrack, excludeId?)` ·
 `clipsOverlap(a, b)` · `DEFAULT_OVERLAP_TOLERANCE` ·
+timeline geometry (pure): `timelineContentWidth(totalFrames, zoom)` · `computeRulerTicks(fps, totalFrames, zoom)` ·
+`computeAnchoredScrollLeft(prevZoom, nextZoom, scrollLeft, anchorX)` · `pinchZoom` · `clampZoom` ·
+`isCompatibleTrackKind` · `isClipAllowedOnTrack` · `clampLeftTrim` / `clampRightTrim` · `neighbourBounds` ·
 `serializeProject(engine)` → string / `deserializeProject(engine, json)` → void ·
 `readProjectDocument(doc)` → `Project` (throws `ProjectDocumentError`) · `relinkProjectMedia(project, assets)` →
 `{ project, relinked, missing }` · `missingMediaSummary(missing)` · `isRecoverableMediaSrc(src)` · `PROJECT_VERSION` ·

@@ -36,7 +36,8 @@ Three invariants hold everywhere. Do not violate them:
 | `apps/web` | The marketing + docs site (elah.dev). Docs pages are hand-written TSX, not MDX. |
 | `apps/server` | Render-server example built on `@elah/cli`. |
 | `examples/` | Standalone example apps that install from **npm**. Outside the root workspace on purpose — see [`examples/AGENTS.md`](examples/AGENTS.md). |
-| `docs/react-native/` | Hand-off docs for the proposed `@elah/react-native` binding (audit, architecture, workstreams). Nothing under `packages/react-native` exists yet; start at its `README.md`. |
+| `packages/react-native` | `@elah/react-native` 0.1.0, pre-release, not published. Today: the platform-free timeline model (`src/timeline/model/`, Node tests, no React Native import allowed there). Versions independently, like the CLI. |
+| `docs/react-native/` | Hand-off docs for the React Native binding (audit, architecture, workstreams, and the contributor issue drafts in `issues/`). Start at its `README.md`. |
 
 ## Commands
 
