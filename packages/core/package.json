@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./engine": {
+      "types": "./dist/engine.d.ts",
+      "import": "./dist/engine.js",
+      "default": "./dist/engine.js"
     }
   },
   "files": [

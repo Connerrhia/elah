@@ -1,5 +1,5 @@
 import type { Clip } from '@elah/core'
-import { playbackStore, tracksStore } from '@elah/core'
+import { playbackStore, tracksStore } from '@elah/core/engine'
 import type { GestureSnapshot } from './types'
 
 /**

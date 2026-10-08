@@ -74,6 +74,22 @@ describe('@elah/react-native layering', () => {
     expect(offenders).toEqual([])
   })
 
+  it('imports @elah/core by value only through the browser-free engine entry', () => {
+    // The root '@elah/core' reaches the export worker's import.meta, which
+    // Metro cannot parse. Type-only imports from it are erased and allowed.
+    const offenders = files
+      .filter((f) => {
+        const source = readFileSync(f, 'utf8')
+        // One statement at a time: the body may not cross another `from`.
+        const statements = source.match(
+          /(?:^|\n)\s*(?:import|export)\s+(?!type\s)(?:(?!\bfrom\b)[\s\S])*?\bfrom\s+['"]@elah\/core['"]/g,
+        )
+        return statements !== null
+      })
+      .map(rel)
+    expect(offenders).toEqual([])
+  })
+
   it('reaches @elah/core only through a package entry, never a deep path', () => {
     const offenders = files
       .filter((f) =>

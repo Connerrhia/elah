@@ -1,5 +1,5 @@
 import type { Clip, Track } from '@elah/core'
-import { xToFrame } from '@elah/core'
+import { xToFrame } from '@elah/core/engine'
 import type { ClipRect, LaneSlot } from './types'
 
 /** Vertical inset of a clip block inside its lane, px. Matches the DOM timeline (`top: 5`, height `trackHeight - 10`). */

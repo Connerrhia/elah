@@ -7,7 +7,7 @@ import {
   neighbourBounds,
   pxToFrames,
   TRIM_HANDLE_WIDTH_PX,
-} from '@elah/core'
+} from '@elah/core/engine'
 import type { EngineCommand } from './commands'
 import { findClipInSnapshot, isTrackLockedInSnapshot } from './snapshot'
 import type { GestureSnapshot } from './types'

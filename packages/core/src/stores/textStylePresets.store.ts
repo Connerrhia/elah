@@ -1,4 +1,5 @@
 import { createStore } from 'zustand/vanilla'
+import { generateId } from '../utils/id'
 
 export interface TextStylePreset {
   id: string
@@ -84,7 +85,7 @@ export const textStylePresetsStore = createStore<TextStylePresetsState & TextSty
     presets: [],
 
     addPreset: (preset) =>
-      set((s) => ({ presets: [...s.presets, { ...preset, id: crypto.randomUUID() }] })),
+      set((s) => ({ presets: [...s.presets, { ...preset, id: generateId() }] })),
 
     removePreset: (id) =>
       set((s) => ({ presets: s.presets.filter((p) => p.id !== id) })),

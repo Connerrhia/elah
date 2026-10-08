@@ -22,13 +22,29 @@ versions independently, starting from its own 0.1.0.
   Re-exported by `@elah/editor`.
 - **`@elah/react-native` 0.1.0 (pre-release, not published).** The platform-free timeline model:
   lane layout, move / trim / pinch gesture reducers and a single engine-command applier, tested
-  against the real `TimelineEngine`. No component yet.
+  against the real `TimelineEngine`. Re-exports `EditorProvider`, the store hooks and the engine
+  from `@elah/core/engine`. No timeline component yet.
+- **`@elah/core/engine`: a browser-free entry point.** The engine, resolver, `PlaybackEngine`,
+  stores, clip factories, project documents and the pure placement / timeline math, without the
+  WebGL2 renderer, WebCodecs, the media importers or the export worker (whose `import.meta`
+  Metro and Hermes reject). Shares module instances with `@elah/core`. A test pins every file
+  it can reach.
+- **`@elah/react`: `EditorProvider`.** Moved from `@elah/editor`, which still re-exports it, so
+  no import changes. On React Native, Metro picks a `useMediaLibrary.native` variant whose
+  browser importers throw.
+- **`apps/mobile`:** an Expo dev harness for the React Native binding (own install, not a root
+  workspace member).
 
 ### Changed
 
 - **`@elah/timeline`:** the zoom-anchor, content-width and track-compatibility modules now
   re-export from `@elah/core`, and the ruler computes its ticks with `computeRulerTicks`. No
   behaviour change. `playbackStore.setZoom` clamps with the shared `clampZoom`.
+- **`@elah/core`:** `textStylePresetsStore.addPreset` ids come from `generateId()` instead of
+  `crypto.randomUUID()`, which Hermes does not provide.
+- **`@elah/react`:** value imports from core go through `@elah/core/engine`; the build no longer
+  emits `*.test.tsx` files into `dist`.
+- The root `workspaces` list names `apps/web` and `apps/server` instead of `apps/*`.
 
 ## [0.6.0] — 2026-10-02
 

@@ -1,4 +1,4 @@
-import { TimelineEngine } from '@elah/core'
+import { TimelineEngine } from '@elah/core/engine'
 import type { Clip, Track } from '@elah/core'
 import type { GestureSnapshot } from '../types'
 

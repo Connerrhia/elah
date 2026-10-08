@@ -9,6 +9,12 @@ every later issue adds a gesture to what this one draws.
 
 ## Proposed solution
 
+0. Add `react-native`, `react-native-gesture-handler`, `react-native-reanimated` and
+   `react-native-worklets` to `packages/react-native/package.json` `peerDependencies` (ranges
+   that include what `apps/mobile` pins: gesture-handler ~2.32, Reanimated 4.5, Worklets 0.10 on
+   Expo SDK 57). The harness already has them installed and `<GestureHandlerRootView>` at its
+   root. Gesture-handler 2.x has the `Gesture.Pan()` / `GestureDetector` API used below.
+
 In `packages/react-native/src/timeline/components/`:
 
 1. `Timeline.tsx`: reads `useTracksStore(s => s.tracks)`, `s.clips`, `s.totalFrames` and

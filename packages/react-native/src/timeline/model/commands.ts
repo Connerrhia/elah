@@ -1,5 +1,5 @@
 import type { PlaybackActions, SelectionActions, TimelineEngine } from '@elah/core'
-import { playbackStore, selectionStore } from '@elah/core'
+import { playbackStore, selectionStore } from '@elah/core/engine'
 
 /**
  * What a finished gesture asks the editor to do. Reducers return these; they

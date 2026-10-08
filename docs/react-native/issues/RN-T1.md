@@ -1,5 +1,7 @@
 # RN-T1: Metro-safe imports: `@elah/core/engine`, and `@elah/react` off the root barrel
 
+> **Done 2026-10-08 by the maintainer** (see `04-workstreams.md`, RN-T1). Kept as the record of what was asked; do not file.
+
 **Depends on:** nothing. **Size:** M. **Device:** no.
 
 ## What problem does this solve?

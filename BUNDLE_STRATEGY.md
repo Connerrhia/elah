@@ -146,6 +146,15 @@ engine alone installs `core` and pays the 11 KiB startup in the table above.
 micro-packages; these five exist because each has a real, separately adopted
 consumer.
 
+**`@elah/core/engine`** is a second entry into the same package: the engine,
+resolver, playback clock, stores, clip factories and pure placement / timeline
+math, with no renderer, no codec, no mediabunny, no export worker and no DOM
+importers. It is what React Native (Metro + Hermes cannot parse the export
+worker's `import.meta`) and engine-only consumers import.
+`src/engine.no-browser.test.ts` pins exactly which source files it may reach.
+`@elah/react` imports core's values through it. `@elah/react-native` (pre-release)
+sits beside the web UI packages: `core ← react ← react-native`.
+
 ---
 
 ## Tree-shaking and dead-code boundaries

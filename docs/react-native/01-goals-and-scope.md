@@ -109,7 +109,7 @@ Verified against the npm registry and vendor docs on 2026-10-06. These are floor
 | Expo | SDK 57 (bundles RN 0.86) | The dev harness is an Expo app. The library must also work in a bare RN app; the harness being Expo is a convenience, not a requirement. |
 | `react-native-skia` | 3.x (`react-native-skia` on npm; the `@shopify/react-native-skia` name is the 2.x line) | Graphite backend, Paragraph API, offscreen surfaces. Current: 3.0.5. |
 | `react-native-reanimated` / `react-native-worklets` | 4.x / 0.7+ | Peers of Skia v3 and of `react-native-audio-api`. Current: 4.7.1. |
-| `react-native-gesture-handler` | 3.x | Timeline gestures. Current: 3.3.0. |
+| `react-native-gesture-handler` | 2.x (Expo SDK 57 pins ~2.32; 3.x is on npm) | Timeline gestures. The harness uses what `npx expo install` picks. |
 | `react-native-audio-api` | 0.13+ | Optional peer; see D5. Current: 0.13.6. |
 
 ## Success criteria for the whole effort

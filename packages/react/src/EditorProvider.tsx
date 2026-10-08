@@ -5,14 +5,17 @@ import {
   PlaybackEngine,
   installTraceGlobal,
   trace,
-} from '@elah/core'
-import {
-  useTracksStore,
-  usePlaybackStore,
-  useTransitionsStore,
-  EditorContext,
-} from '@elah/react'
+} from '@elah/core/engine'
+import { useTracksStore, usePlaybackStore, useTransitionsStore } from './stores'
+import { EditorContext } from './editor-context'
 
+/**
+ * Builds the engine pair and wires it to the read-only stores: engine changes
+ * -> tracksStore / transitionsStore, PlaybackEngine <-> playbackStore (with the
+ * echo-seek guard), and the project:loaded rewind. DOM-free, so the web editor
+ * and @elah/react-native share it. Moved here from @elah/editor (RN-T2);
+ * @elah/editor still re-exports it.
+ */
 export interface EditorProviderProps {
   fps: number
   stage?: { width: number; height: number }

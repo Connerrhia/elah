@@ -11,9 +11,9 @@ function", except T1 to T3, which make it possible to run on a device at all.
 
 | Issue | Title | Depends on | Size | Needs a device |
 |---|---|---|---|---|
-| [RN-T1](./RN-T1.md) | Metro-safe imports: `@elah/core/engine`, and `@elah/react` off the root barrel | none | M | no |
-| [RN-T2](./RN-T2.md) | Move `EditorProvider` to `@elah/react` | none | S | no |
-| [RN-T3](./RN-T3.md) | `apps/mobile`: Expo dev harness with a fixture project | T1, T2 | M | yes |
+| [RN-T1](./RN-T1.md) | Metro-safe imports: `@elah/core/engine`, and `@elah/react` off the root barrel (**done**) | none | M | no |
+| [RN-T2](./RN-T2.md) | Move `EditorProvider` to `@elah/react` (**done**) | none | S | no |
+| [RN-T3](./RN-T3.md) | `apps/mobile`: Expo dev harness with a fixture project (**done**) | T1, T2 | M | yes |
 | [RN-T4](./RN-T4.md) | `<Timeline>`: lanes, clip blocks, horizontal scroll | T3 | M | yes |
 | [RN-T5](./RN-T5.md) | Ruler, playhead and tap-to-seek | T4 | S | yes |
 | [RN-T6](./RN-T6.md) | Long-press-and-drag to move a clip | T4 | M | yes |
@@ -21,9 +21,9 @@ function", except T1 to T3, which make it possible to run on a device at all.
 | [RN-T8](./RN-T8.md) | Pinch to zoom, and fit-to-window | T4 | S | yes |
 | [RN-T9](./RN-T9.md) | Selection, delete, undo / redo, and a JSON round trip with the web | T4 | S | yes |
 
-T1 and T2 can start today and in parallel. T5 to T9 can run in parallel once T4 is merged.
+**T1 to T3 are done**: the harness runs (see [`apps/mobile/README.md`](../../../apps/mobile/README.md)). File **T4 to T9** only. T4 comes first; T5 to T9 can run in parallel once T4 is merged.
 
-Suggested labels: `react-native`, `good first issue` (T2, T5, T8), `help wanted` (all).
+Suggested labels: `react-native`, `good first issue` (T5, T8), `help wanted` (all).
 
 ## Read before taking any of these
 

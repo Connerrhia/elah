@@ -341,8 +341,8 @@ export type {
 } from '@elah/timeline'
 
 // --- Editor composition layer ---
-export { EditorProvider } from './editor/EditorProvider'
-export type { EditorProviderProps } from './editor/EditorProvider'
+export { EditorProvider } from '@elah/react'
+export type { EditorProviderProps } from '@elah/react'
 
 export { EditorContext, useEditor, useTimelineEngine, usePlaybackEngine } from '@elah/react'
 export type { EditorContextValue } from '@elah/react'

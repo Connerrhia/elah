@@ -99,10 +99,52 @@ so the preview never shows a position the commit refuses. The web could adopt th
 
 **Not done here:** anything that needs Metro or a device. See RN-T1 to RN-T3.
 
-### RN-T1 to RN-T9
+### RN-T1 — Metro-safe imports
+
+**Status:** done (uncommitted on `dev`, 2026-10-08). Covers RN-P1.
+**What landed:** `packages/core/src/engine.ts` exported as `@elah/core/engine`;
+`engine.no-browser.test.ts` walks the runtime import graph (type-only imports skipped) and pins
+the 43 reachable files, the two allowed npm packages, no `import.meta`, no browser API, and
+`document` / `window` / `localStorage` only behind `typeof` (mutation-checked: adding
+`exportVideo` to the entry fails with `engine.ts -> export/index.ts -> export/exportVideo.ts`);
+`engine.singletons.test.ts` proves both entries share store instances. `textStylePresets.store`
+uses `generateId()` instead of `crypto.randomUUID()` (Hermes has no `crypto`). `@elah/react`
+value imports moved to the engine entry; its media hook got a `.native` variant (D14).
+`@elah/react-native` imports values only from the engine entry, enforced by its guard.
+**Surprise:** the audit's "`@elah/react` reusable unchanged" was wrong for Metro (root-barrel
+imports and the DOM importers), and `@elah/react`'s build emitted `*.test.tsx` into `dist`
+(its exclude list lacked `.tsx`; fixed).
+
+### RN-T2 — `EditorProvider` in `@elah/react`
+
+**Status:** done (uncommitted on `dev`, 2026-10-08). Covers RN-P2.
+**What landed:** `git mv` to `packages/react/src/EditorProvider.tsx`, imports via the engine entry
+and local modules, exported from `@elah/react` and `@elah/react-native`; `@elah/editor`
+re-exports it, so no consumer changes. New jsdom test: store mirroring, store seek moves the
+engine exactly once (no echo seek), `project:loaded` rewinds the transport.
+
+### RN-T3 — `apps/mobile` harness
+
+**Status:** done (uncommitted on `dev`, 2026-10-08). Covers the harness half of RN-P0/RN-P3.
+**What landed:** Expo SDK 57 (React Native 0.86.3, React 19.2.3) app with its own install (D10
+amendment), a Metro config that loads the packages from `src` and refuses the root
+`@elah/core`, the model-test fixture, and one screen: transport, a read-only debug view of the
+lanes, buttons that run the real move / trim reducers and apply their commands, and the store
+mirror. `npm run bundle:android` / `bundle:ios` produce Hermes bundles with no `import.meta`
+workaround; the source map shows one React, zero files from the root `node_modules`, and
+exactly the 43 core files the guard allows. On the web target every button produced the state
+the Node tests predict, and playback advanced at 30 fps.
+**Not verified:** a physical phone or emulator (none was attached). Do the first device run with
+`npx expo start` and Expo Go, and attach a recording to the PR.
+**Surprises:** Expo SDK 57 pins `react-native-gesture-handler` ~2.32, not the 3.x this folder
+assumed. Expo's Metro honours `tsconfig.json` `paths` (turned off in `app.json`), and
+`disableHierarchicalLookup` breaks Expo's own nested packages, so package-source imports are
+re-rooted at the app instead.
+
+### RN-T4 to RN-T9
 
 Their bodies are in [`issues/`](./issues/README.md) so they can be pasted into GitHub as-is.
-When one lands, add a `### RN-Tn` entry here with its status and its surprise, as for RN-T0.
+When one lands, add a `### RN-Tn` entry here with its status and its surprise, as above.
 
 ---
 

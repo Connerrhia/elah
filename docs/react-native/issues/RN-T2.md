@@ -1,5 +1,7 @@
 # RN-T2: Move `EditorProvider` to `@elah/react`
 
+> **Done 2026-10-08 by the maintainer** (see `04-workstreams.md`, RN-T2). Kept as the record of what was asked; do not file.
+
 **Depends on:** nothing. **Size:** S. **Device:** no. **Good first issue.**
 
 ## What problem does this solve?

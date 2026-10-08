@@ -1,5 +1,7 @@
 # RN-T3: `apps/mobile`: Expo dev harness with a fixture project
 
+> **Done 2026-10-08 by the maintainer** (see `04-workstreams.md`, RN-T3). Kept as the record of what was asked; do not file.
+
 **Depends on:** RN-T1, RN-T2. **Size:** M. **Device:** yes (simulator or emulator is enough).
 
 ## What problem does this solve?

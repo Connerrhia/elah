@@ -449,6 +449,14 @@ const scene = resolveTimeline(frame, project)
 
 Clip fields are **flat**: `scene.texts[0].content`, `.fontSize`, `.color` — not nested.
 
+### Entry points
+
+`@elah/core` is everything. `@elah/core/engine` is the browser-free subset (engine, resolver,
+`PlaybackEngine`, stores, clip factories, project documents, pure placement / timeline math) with
+no renderer, codec, importer or export worker. Use it in React Native, workers and Node; both
+entries share store instances. `EditorProvider` is exported by `@elah/react` (and re-exported by
+`@elah/editor`).
+
 ### Utilities
 
 `framesToTimecode(frame, fps)` · `secondsToFrames(s, fps)` · `framesToSeconds(f, fps)` ·

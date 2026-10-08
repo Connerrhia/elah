@@ -7,7 +7,7 @@ import {
   resolveOverlapEdgeSnap,
   snapFrame,
   snapThresholdFrames,
-} from '@elah/core'
+} from '@elah/core/engine'
 import type { EngineCommand } from './commands'
 import { computeLaneSlots, laneAtY, laneForTrack } from './layout'
 import { findClipInSnapshot } from './snapshot'

@@ -37,6 +37,7 @@ Three invariants hold everywhere. Do not violate them:
 | `apps/server` | Render-server example built on `@elah/cli`. |
 | `examples/` | Standalone example apps that install from **npm**. Outside the root workspace on purpose — see [`examples/AGENTS.md`](examples/AGENTS.md). |
 | `packages/react-native` | `@elah/react-native` 0.1.0, pre-release, not published. Today: the platform-free timeline model (`src/timeline/model/`, Node tests, no React Native import allowed there). Versions independently, like the CLI. |
+| `apps/mobile` | Expo dev harness for `@elah/react-native`. **Not a root workspace member**: own `node_modules` and lockfile (Expo pins React 19.2; the root hoists React 18). Metro loads `@elah/*` from `packages/*/src` and refuses the root `@elah/core` (its `import.meta`). See its `README.md`. |
 | `docs/react-native/` | Hand-off docs for the React Native binding (audit, architecture, workstreams, and the contributor issue drafts in `issues/`). Start at its `README.md`. |
 
 ## Commands

@@ -1,8 +1,10 @@
 # React Native binding — start here
 
-> **Status: timeline first, base built (2026-10-08).** `packages/react-native` holds the timeline
-> model, tested in Node; the shared timeline math is in `@elah/core`. Nothing runs on a device
-> yet. Contributor issues for the rest of the timeline: [`issues/`](./issues/README.md).
+> **Status: timeline first, base built and runnable (2026-10-08).** `@elah/core/engine`,
+> `EditorProvider` in `@elah/react`, the timeline model in `packages/react-native`, and the Expo
+> harness in [`apps/mobile`](../../apps/mobile/README.md) (Hermes bundles verified; first
+> on-device run owed). Contributor issues for the timeline UI: [`issues/`](./issues/README.md)
+> (RN-T4 to RN-T9).
 > **Last verified: 2026-10-06** against `dev` @ `e9fe11c` (packages 0.6.0, `@elah/cli` 0.1.2),
 > the installed `node_modules`, and the npm registry / vendor docs cited inline.
 > Every claim in this folder was checked against the source on that date. If you find one

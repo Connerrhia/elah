@@ -36,12 +36,19 @@ Refresh (mirroring `apps/web`), but the alias is only wired once RN-P3 lands.
 ## Commands
 
 ```bash
-npm run typecheck                                       # every workspace, mobile included
-npm run test --workspace=packages/react-native          # vitest, node env, Skia mocked
-npm run build --workspace=packages/react-native         # tsc → dist/
-cd apps/mobile && npx expo run:ios                      # or run:android
+npm run typecheck                                       # every root workspace (apps/mobile is NOT one)
+npm run test --workspace=packages/react-native          # vitest, node env
+npm run build:packages                                  # apps/mobile typechecks against these .d.ts
+cd apps/mobile && npm install                           # its own node_modules + lockfile
+cd apps/mobile && npx expo start                        # then a / i / w, or scan with Expo Go
+cd apps/mobile && npm run typecheck                     # after build:packages
+cd apps/mobile && npm run bundle:android                # Metro + Hermes bundle, no device needed
 cd apps/mobile && npx expo start -c                     # clear Metro cache after resolver changes
 ```
+
+`apps/mobile` has its own install on purpose: Expo pins React 19.2, the root hoists React 18 for
+the web packages. Its [`README.md`](../../apps/mobile/README.md) explains the Metro wiring and how
+to set up an Android emulator.
 
 ## Metro traps (read before the first "cannot find module")
 

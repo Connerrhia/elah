@@ -21,6 +21,7 @@
 | D11 | `EditorProvider` moves to `@elah/react` | decided | RN-P2 |
 | D12 | Timeline math moves to `@elah/core`; UI is rewritten, not ported | decided | RN-P9 |
 | D13 | Reuse `@elah/cli`'s `elah serve` as an optional server-side export | recommended | after RN-P10 |
+| D14 | `@elah/react`'s media-library hook gets a `.native` variant instead of an API change | decided | RN-T1 |
 
 ---
 
@@ -138,6 +139,14 @@ primitives. The *library* must not require Expo: no `expo-*` import inside
 through `useImportMedia({ pickers })` or live in the harness). `examples/react-native` (RN-P11)
 should be a bare React Native app to prove it.
 
+**Amended 2026-10-08 (RN-T3): the harness is not a root workspace member.** Expo SDK 57 pins
+React 19.2.3 and React Native 0.86.3; the root workspace hoists React 18 for the web packages.
+As a member, `npm install` at the root would either nest a second React or rewrite the root
+lockfile around Expo. So `apps/mobile` has its own `node_modules` and lockfile, the root
+`workspaces` lists `apps/web` and `apps/server` explicitly, and Metro loads the `@elah`
+packages from `src` and resolves their npm imports from the harness (one React in the bundle,
+verified from the source map). TypeScript reads the packages' built `.d.ts` files.
+
 ## D11 — `EditorProvider` to `@elah/react`
 
 **Decided.** The file has no DOM reference and is the exact wiring mobile needs. Copying it into
@@ -160,6 +169,20 @@ stores. "Port the web timeline" is not a ticket anyone should take.
 `elah serve` already accepts a build spec over HTTP and returns an MP4, and `serializeProject`
 output is a stable document. An "export in the cloud" option that posts the project document is
 cheap to add once a server exists for it, and is independent of RN-P10. Not v0.1.
+
+---
+
+## D14 — A `.native` media-library hook, not an API change
+
+**Decided (RN-T1, 2026-10-08).** `@elah/react`'s `useMediaLibrary` returns `importFiles`,
+`importUrl` and `importBlob`, imported by value from core's root entry. That import is what kept
+`@elah/react` out of Metro. The options were: inject the importers (a breaking change for apps
+that use `@elah/react` without `@elah/editor`), move them to `@elah/editor` (also breaking), or
+add `useMediaLibrary.native.ts`. Metro prefers a `.native` file on iOS and Android, including in
+`node_modules`; browsers, Node and every web bundler ignore it. The variant has the same API and
+store; its importers throw with a pointer to RN-P8. Zero change for web consumers. A test pins
+that the variant imports nothing from `@elah/core` by value. Revisit when RN-P8 gives mobile a
+real importer: the `.native` file could then call it.
 
 ---
 

@@ -74,6 +74,23 @@ const scene = resolveTimeline(15, engine.getProject())
 
 ---
 
+## Using the engine without a browser
+
+`@elah/core/engine` is the browser-free subset: the engine, resolver, `PlaybackEngine`, the
+stores, clip factories, project documents, and the pure placement and timeline math. It leaves
+out the WebGL2 renderer, WebCodecs decode, the media importers and the MP4 export, which is the
+one module using `import.meta`. Use it from React Native (Metro and Hermes reject `import.meta`),
+workers, or Node:
+
+```ts
+import { TimelineEngine, resolveTimeline } from '@elah/core/engine'
+```
+
+Both entries share module instances, so `tracksStore` from either is the same object. A test,
+`src/engine.no-browser.test.ts`, fails if anything browser-bound becomes reachable from it.
+
+---
+
 ## Save and restore
 
 `serializeProject` / `deserializeProject` are the simple pair. Underneath them,

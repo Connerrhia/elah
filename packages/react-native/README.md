@@ -3,11 +3,11 @@
 React Native binding for the Elah video engine: the same `Project` document, the same
 `TimelineEngine` and the same `@elah/react` hooks as the web, on iOS and Android.
 
-> **Status: pre-release, not on npm.** The timeline is being built first. Today this package
-> contains the timeline **model**: lane layout and the move / trim / pinch gesture logic,
-> tested in Node against the real engine. There is no component yet, and the package cannot be
-> bundled by Metro until RN-T1 lands. Contributor issues:
-> [`docs/react-native/issues/`](../../docs/react-native/issues/README.md).
+> **Status: pre-release, not on npm.** The timeline is being built first. The engine, the shared
+> `EditorProvider` and the timeline model bundle for Hermes and run in the dev harness
+> ([`apps/mobile`](../../apps/mobile/README.md)), verified on its web target so far; the first
+> run on a phone is owed. The `<Timeline>` component is next. Contributor
+> issues: [`docs/react-native/issues/`](../../docs/react-native/issues/README.md).
 
 ## Status
 
@@ -15,9 +15,9 @@ React Native binding for the Elah video engine: the same `Project` document, the
 |---|---|---|
 | Shared timeline math in `@elah/core` (zoom, ruler ticks, trim limits, track rules) | works | RN-T0 |
 | Timeline model: lanes, move / trim / pinch reducers, engine commands | works (Node, 80 tests) | RN-T0 |
-| Bundles under Metro / Hermes | not yet | RN-T1 |
-| `EditorProvider` from this package | not yet | RN-T2 |
-| Dev harness (`apps/mobile`) | not yet | RN-T3 |
+| Bundles under Metro / Hermes (via `@elah/core/engine`) | works (Android + iOS bundles) | RN-T1 |
+| `EditorProvider` from this package | works | RN-T2 |
+| Dev harness (`apps/mobile`) | works (bundles verified; first on-device run owed) | RN-T3 |
 | `<Timeline>` lanes and clips | not yet | RN-T4 |
 | Ruler, playhead, seek | not yet | RN-T5 |
 | Move, trim, pinch, selection, undo on device | not yet | RN-T6 to RN-T9 |

@@ -1,4 +1,4 @@
-import { clampZoom, computeAnchoredScrollLeft, pinchZoom, resolveZoomAnchorX } from '@elah/core'
+import { clampZoom, computeAnchoredScrollLeft, pinchZoom, resolveZoomAnchorX } from '@elah/core/engine'
 
 /**
  * Zoom that keeps a chosen point still. Two entry points: a pinch (anchored

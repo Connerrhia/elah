@@ -12,7 +12,7 @@ React bindings for the [Elah](https://www.elah.dev) video engine.
 
 Each store hook also carries the vanilla store API, so `useTracksStore(s => s.tracks)` and `useTracksStore.getState()` both work.
 
-`@elah/core` ships the stores as **module-level singletons** (one `tracksStore`, one `playbackStore`, etc. per JS realm), and this package's hooks bind to those exact instances — so only one active engine/project per page is supported today. `@elah/editor`'s `<EditorProvider>` wires a `TimelineEngine` + `PlaybackEngine` into these shared stores on mount; mounting a second `<EditorProvider>` (or manually wiring a second engine into `EditorContext.Provider`) on the same page will have both write into the same stores and clobber each other's state.
+`@elah/core` ships the stores as **module-level singletons** (one `tracksStore`, one `playbackStore`, etc. per JS realm), and this package's hooks bind to those exact instances — so only one active engine/project per page is supported today. `<EditorProvider>` (exported from this package since the React Native work; `@elah/editor` re-exports it, so existing imports keep working) wires a `TimelineEngine` + `PlaybackEngine` into these shared stores on mount; mounting a second `<EditorProvider>` (or manually wiring a second engine into `EditorContext.Provider`) on the same page will have both write into the same stores and clobber each other's state.
 
 **Version note:** install `@elah/react` at the same release line as whatever `@elah/core` (and, if used, `@elah/timeline`/`@elah/editor`) version you're on — see each package's `peerDependencies`/`dependencies` range. A mismatched `@elah/core` copy (e.g. hoisted to a different version than what `@elah/react`/`@elah/timeline`/`@elah/editor` resolve internally) means two separate copies of these singleton stores exist, and state silently stops syncing between them.
 
@@ -37,6 +37,14 @@ function TrackCount() {
   return <span>{tracks.length} tracks in {engine.getProject().id}</span>
 }
 ```
+
+`<EditorProvider fps={30}>` builds the engine pair and keeps the stores in sync; wrap your
+tree in it. It has no DOM dependency, so React Native uses the same component.
+
+**React Native.** Value imports from `@elah/core` go through the browser-free
+`@elah/core/engine` entry, so Metro can bundle this package. On iOS and Android, Metro picks
+`useMediaLibrary.native`: same API and store, but `importFiles` / `importUrl` / `importBlob`
+throw, because they are DOM importers. Mobile import is `@elah/react-native`'s job.
 
 ## License
 
